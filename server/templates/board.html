@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Arduino Web Controller - {% if board_name %} Board Does Not Exist {% else %} Board {{ board_name }}{% endif %}</title>
+		<!-- CSS -->
+		<link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+	</head>
+	<body>
+	
+	<!-- Nav bar -->
+	<nav class="navbar navbar-default">
+	  <div class="container-fluid">
+	    <!-- Brand and toggle get grouped for better mobile display -->
+	    <div class="navbar-header">
+	      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+	        <span class="sr-only">Toggle navigation</span>
+	        <span class="icon-bar"></span>
+	        <span class="icon-bar"></span>
+	        <span class="icon-bar"></span>
+	      </button>
+	      <a class="navbar-brand" href="/">Arduino Web Controller</a>
+	    </div>
+
+	    <!-- Collect the nav links, forms, and other content for toggling -->
+	    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+	      <ul class="nav navbar-nav">
+	        <li class="active"><a href="/">Home</a></li>
+	      </ul>
+	    </div><!-- /.navbar-collapse -->
+	  </div><!-- /.container-fluid -->
+	</nav>
+
+	<!-- Main page -->
+	{% if board_name %}
+	<div class="container">
+		<div class="row">
+			<div class="col-md-12">
+				<div class="jumbotron">
+					<div class="container">
+						<h2>{{ board_name }}</h2>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% else %}
+	<div class="container">
+		<div class="row">
+			<div class="col-md-12">
+				<div class="jumbotron">
+					<div class="container">
+						<h2>404 Board Does Not Exist</h2>
+						<h4>Remember to have the script create a board first and carefully enter the name on the homepage!</h4>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+
+	<!-- JS -->
+	<script src="{{ url_for('static', filename='js/jquery-1.12.2.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/board-requests.js') }}"></script>
+	</body>
+</html>
