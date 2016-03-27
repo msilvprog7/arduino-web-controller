@@ -1,4 +1,4 @@
-import requests
+import json, requests, yaml
 
 url = "http://127.0.0.1:5000"
 
@@ -35,9 +35,9 @@ def main():
 	""" Main functionality """
 	# response = create_new_board()
 	# response = create_new_board_with_token()
-	response = create_new_board_with_rgb_leds()
-	# response = get_board_status()
-	print response.json()
+	# response = create_new_board_with_rgb_leds()
+	response = get_board_status()
+	print yaml.safe_dump(response.json())
 
 if __name__ == "__main__":
 	main()
