@@ -139,3 +139,16 @@ class RGB_LED:
 
 		self.set(int(values[0]), int(values[1]), int(values[2]))
 
+	def set_dict(self, d):
+		if d.has_key("r") and type(d["r"]) is int:
+			self.r = int(d["r"])
+
+		if d.has_key("g") and type(d["g"]) is int:
+			self.g = int(d["g"])
+
+		if d.has_key("b") and type(d["b"]) is int:
+			self.b = int(d["b"])
+
+		if d.has_key("r") and type(d["r"]) is int:
+			self.mode = str(d["mode"])
+

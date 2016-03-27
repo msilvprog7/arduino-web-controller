@@ -6,19 +6,19 @@ ping_server_ms = 1000 / 30
 
 # Functions---------------------------------Start
 
-def sendToArduino(msg):
+def sendToArduino(ard, msg):
 	"Sends a message to the arduino over the com port"
 	ard.write(msg)
 	ard.write('\n')
 	return;
 
-def readFromArduino():
+def readFromArduino(ard):
 	"Reads an int from the com port"
 	tmp = ard.read(ard.in_waiting) # Reads all of the bytes waiting in the buffer
 	#print tmp
 	return tmp;
 
-def grabCommaDel():
+def grabCommaDel(ard):
 	"Gets comma delimited information from the serial port"
 	while(ard.in_waiting == 0):
 		# do nothing
@@ -34,10 +34,11 @@ def grabCommaDel():
 		#print tmpByteRead
 	return tmpResponse
 
-def sendLEDsToArduino(ledGroupList):
+def sendLEDsToArduino(ard, ledGroupList):
 	"Sends the ledGroupList to Arduino; that is, the RGB values for each LED"
 	# Initial formatting
-	listForSending = "WS2812S"
+	listForSending = []
+	listForSending.append('WS2812S')
 	# Set output of LED groups
 	for led_group in ledGroupList: # Set all of the strips
 		for rgb_led in led_group.rgb_leds:
@@ -45,7 +46,7 @@ def sendLEDsToArduino(ledGroupList):
 			listForSending.append(str(rgb_led.g).zfill(3))
 			listForSending.append(str(rgb_led.b).zfill(3))
 	# Send to the Arduino
-	sendToArduino(''.join(listForSending))
+	sendToArduino(ard, ''.join(listForSending))
 
 
 
@@ -69,7 +70,7 @@ def update_board_from_server(board_name, ledGroupList):
 	if response.has_key("rgb-led-groups") and type(response["rgb-led-groups"]) is list:
 		for group_id, group in enumerate(response["rgb-led-groups"]):
 			if group.has_key("rgb-leds") and type(group["rgb-leds"]) is list:
-				for led_id, led in enumerate(response["rgb-leds"]):
+				for led_id, led in enumerate(group["rgb-leds"]):
 					ledGroupList[group_id].rgb_leds[led_id].set_dict(led)
 	
 
@@ -105,17 +106,17 @@ def main():
 
 	# Set up the LED arrays----------------------------------------------------------Start
 	ard.flush() # Clear the buffer if there's anything waiting to be read
-	sendToArduino("WS2812?") # Something regarding the connected WS2812 LEDs
+	sendToArduino(ard, "WS2812?") # Something regarding the connected WS2812 LEDs
 	time.sleep(1)
 	# It will send number (how many strips there are), and the number of LEDs in each strip
 	tmpResponse = 0
 	tmpCounter = 0
-	numStrips = int(float(grabCommaDel())) # the number of strips should be the first thing sent
+	numStrips = int(float(grabCommaDel(ard))) # the number of strips should be the first thing sent
 	#print "The number of strips is", numStrips
 	while(tmpCounter < numStrips): # Loop through all of the connected strips
 		tmpCounter = tmpCounter + 1
-		tmpNumLEDResponse = int(float(grabCommaDel()))
-		ledGroupList.append(RGB_LED_Group(tmpNumLEDResponse))
+		tmpNumLEDResponse = int(float(grabCommaDel(ard)))
+		ledGroupList.append(RGB_LED_Group(tmpNumLEDResponse, tmpCounter))
 	# ledGroupList should now contain all of the LED groups------------------------End	
 
 	# Register with the server
@@ -139,7 +140,7 @@ def main():
 	board_name = board_info["board-name"]
 	while True:
 		update_board_from_server(board_name, ledGroupList)
-		sendLEDsToArduino(ledGroupList)
+		sendLEDsToArduino(ard, ledGroupList)
 		time.sleep(ping_server_s)
 
 # Run main
