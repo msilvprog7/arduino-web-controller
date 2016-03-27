@@ -28,7 +28,7 @@ lexicon
 Mesopotamia
 monopoly
 necromancer
-Neolithic
+nope
 onomatopoeia
 opportunity
 pokemon
@@ -44,7 +44,7 @@ tide
 umpire
 understatement
 vampire
-vegatable
+vegetable
 virtues
 wasp-nest
 wilderness
