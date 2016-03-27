@@ -69,6 +69,12 @@ class Board:
 			led_id = int(split_values[2])
 			self.set_single_rgb(set_id, led_id, update_value)
 
+		# Pulse
+		pulse_update = re.findall("pulse-\d+", update_key)
+		for set_pulse in pulse_update:
+			set_id = int(set_pulse.rsplit("-")[1])
+			self.rgb_led_groups[set_id].pulse(update_value)
+
 class RGB_LED_Group:
 	""" A cluster of RGB LEDs """
 
@@ -112,6 +118,14 @@ class RGB_LED_Group:
 				print "Updating Set", self.id, "RGB", led_id, "to", update_value
 				led.set_value(update_value)
 				return
+
+	def pulse(self, update_value):
+		""" Shift all and set first """
+		for i in reversed(range(len(self.rgb_leds) - 1)):
+			if i == 0:
+				self.rgb_leds[i].set_value(update_value)
+			else:
+				self.rgb_leds[i].set_dict(self.rgb_leds[i - 1].get())
 
 class RGB_LED:
 	""" A single RGB LED """

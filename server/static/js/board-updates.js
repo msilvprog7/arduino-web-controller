@@ -160,26 +160,22 @@ var pulseRepeat = function (setId) {
 		type: "GET",
 		success: function (data) {
 			var rgb_leds = data["rgb-led-groups"][setId]["rgb-leds"],
-				updateStrBase = "led-" + setId + "-";
-			for (var i = rgb_leds.length - 1; i > 0; i--) {
-				var rgb = rgb_leds[i - 1]["r"] + "," + rgb_leds[i - 1]["g"] + "," + rgb_leds[i - 1]["b"];
-				$.ajax({
-					url: boardUrl,
-					type: "POST",
-					data: {"update-key": updateStrBase + i, "update-value": rgb}
-				});
-
-				$("#" + updateStrBase + i).css("background-color", "rgb(" + rgb + ")");
-			}
+				updateStrBase = "led-" + setId + "-",
+				pulseStr = "pulse-" + setId;
 
 			// Random first LED
-			var rgb = randUChar() + "," + randUChar() + "," + randUChar();
+			var newRgb = randUChar() + "," + randUChar() + "," + randUChar();
 			$.ajax({
 				url: boardUrl,
 				type: "POST",
-				data: {"update-key": updateStrBase + i, "update-value": rgb},
+				data: {"update-key": pulseStr, "update-value": newRgb},
 			});
-			$("#" + updateStrBase + "0").css("background-color", "rgb(" + rgb + ")");
+			$("#" + updateStrBase + "0").css("background-color", "rgb(" + newRgb + ")");
+
+			for (var i = rgb_leds.length - 1; i > 0; i--) {
+				var rgb = rgb_leds[i - 1]["r"] + "," + rgb_leds[i - 1]["g"] + "," + rgb_leds[i - 1]["b"];
+				$("#" + updateStrBase + i).css("background-color", "rgb(" + rgb + ")");
+			}
 
 			// Set timeout
 			if (pulse[setId].pulsing) {
