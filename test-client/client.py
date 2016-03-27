@@ -27,11 +27,16 @@ def create_new_board_with_rgb_leds():
 	# return create_new_board_with_token(opts)
 	return create_new_board(opts)
 
+def get_board_status():
+	name = str(raw_input("Enter board name: "))
+	return requests.get(url + "/board/" + name)
+
 def main():
 	""" Main functionality """
 	# response = create_new_board()
 	# response = create_new_board_with_token()
 	response = create_new_board_with_rgb_leds()
+	# response = get_board_status()
 	print response.json()
 
 if __name__ == "__main__":

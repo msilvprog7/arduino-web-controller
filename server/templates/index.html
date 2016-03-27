@@ -39,10 +39,10 @@
 						<h2>A web-service to control your Arduino!</h2>
 						<div class="row">
 							<div class="col-md-6">
-								<h4>Steps:</h4>
+								<h4>Either use our <a href="https://github.com/msilvprog7/arduino-web-controller" target="_blank">script</a>, or: </h4>
 								<ul class="list-group">
-								  <li class="list-group-item">Make a GET request to <i>/board</i> to be assigned a <i>board-name</i> <span class="badge">1</span></li>
-								  <li class="list-group-item">Have our script retrieve your board data from <i>/board/board-name</i> <span class="badge">2</span></li>
+								  <li class="list-group-item">Make a POST request to <i>/board</i> to be assigned a <i>board-name</i> (see format below) <span class="badge">1</span></li>
+								  <li class="list-group-item">Write a script to get your board data from <i>/board/board-name</i> <span class="badge">2</span></li>
 								  <li class="list-group-item">Enter <i>board-name</i> <b>right here</b> to control your board! <span class="badge">3</span></li>
 								</ul>
 							</div>
@@ -59,6 +59,45 @@
 					</div>
 				</div>
 			</div>
+		</div>
+		<hr>
+		<div class="row">
+			<div class="col-md-8">
+				<h3>Request Formats</h3>
+				<div class="panel panel-default">
+					<div class="panel-heading">POST Request Format</div>
+					<div class="panel-body">
+						Include the following <b>POST data</b> keys in JSON to interact with <i>/board</i>
+						<ul>
+							<li><b>"rgb-led-groups"</b> with a <i>string</i> list of comma separated <i>numbers</i> for the number of RGB LEDs within each group (it's okay to have a group of just 1) [e.g. <i>"rgb-led-groups": "1,2,3"</i> for 3 groups of 1, 2, and 3 RGB LEDs]</li>
+							<li><b>"board-token"</b> <i>(optional)</i> with a <i>string</i> of the board's <i>token</i> returned as <i>board-token</i> from the last POST request to <i>/board</i> [e.g. <i>"board-token": ""</i> to re-design the board layout and maintain the same board-name]</li>
+						</ul>
+					</div>
+				</div>
+				<div class="panel panel-default">
+					<div class="panel-heading">POST Response</div>
+					<div class="panel-body">
+						The following <b>data</b> keys in JSON will be sent back from a POST request to <i>/board</i>
+						<ul>
+							<li><b>"board-name"</b> your <i>wacky</i> board name to refer to the board [e.g. <i>"board-name": "funky-gnome"</i>]</li>
+							<li><b>"board-token"</b> a <i>string</i> with your unique <i>token</i> to make subsequent changes to your board</li>
+							<li><b>"rgb-led-groups"</b> with a <i>list</i> of objects. Each list <i>object</i> has an <i>"rgb_leds"</i> key with another <i>list</i> of rgb objects. Each <i>rgb object</i> has keys for <i>"r"</i>, <i>"g"</i>, <i>"b"</i>, and <i>mode</i> where r, g, and b are <i>numbers</i> and mode is a <i>string</i>.</li>
+						</ul>
+						Note: <i>"error"</i> will be sent with a message for incorrect POST requests
+					</div>
+				</div>
+				<div class="panel panel-default">
+					<div class="panel-heading">GET Response</div>
+					<div class="panel-body">
+						The following <b>data</b> keys in JSON will be sent back from a GET request to <i>/board/board-name</i>
+						<ul>
+							<li><b>"board-name"</b> your <i>wacky</i> board name to refer to the board [e.g. <i>"board-name": "funky-gnome"</i>]</li>
+							<li><b>"rgb-led-groups"</b> with a <i>list</i> of objects. Each list <i>object</i> has an <i>"rgb_leds"</i> key with another <i>list</i> of rgb objects. Each <i>rgb object</i> has keys for <i>"r"</i>, <i>"g"</i>, <i>"b"</i>, and <i>mode</i> where r, g, and b are <i>numbers</i> and mode is a <i>string</i>.</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+			<div class="col-md-4"></div>
 		</div>
 	</div>
 

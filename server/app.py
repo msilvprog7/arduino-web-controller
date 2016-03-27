@@ -13,30 +13,33 @@ name_generator = names.NameGenerator()
 
 
 def has_board(board_name):
+	""" Whether or not the board list has the board with specified name """
 	return get_board(board_name) is not None
 
 def get_board(board_name):
+	""" Get the board in the board list with the specified name or None """
 	for current_board in boards:
 		if current_board.name == board_name:
 			return current_board
 	return None
 
 def get_board_with_token(token):
+	""" Get the board in the board list with the specified board token or None """
 	for current_board in boards:
 		if current_board.token == token:
 			return current_board
 	return None
 
 def add_board(board_to_add):
+	""" Add the board to the board list either to the end or replacing the
+		old one with the same name """
 	for i, current_board in enumerate(boards):
 		# Found in list, replace
 		if current_board.name == board_to_add.name:
-			print "Replacing board in list"
 			boards[i] = board_to_add
 			return
 
 	# Not in list, add
-	print "Adding new board to list"
 	boards.append(board_to_add)
 
 
@@ -53,7 +56,6 @@ def board():
 	""" Obtain a board name to work with (optionally present GUID to reset) """
 	guid = str(request.form['board-token']) if 'board-token' in request.form else None
 	controls = {"rgb-led-groups": str(request.form['rgb-led-groups']) if 'rgb-led-groups' in request.form else ""}
-	print guid, controls
 
 	current_board = get_board_with_token(guid)
 
@@ -79,7 +81,6 @@ def board():
 
 	# Format results
 	results = current_board.get_owner_dict()
-	print results
 	return jsonify(**results)
 
 @app.route("/board/<name>", methods=['GET', 'POST'])
@@ -92,7 +93,13 @@ def get_board_status(name):
 		# Get board info
 		results = current_board.get_dict()
 	elif request.method == 'POST' and current_board is not None:
-		# TODO: Update board info
+		# Update board info
+		update_key = str(request.form['update-key']) if 'update-key' in request.form else ""
+		update_values = str(request.form['update-value']) if 'update-value' in request.form else ""
+		print update_key, update_values
+		# Update control value
+		current_board.update_controls(update_key, update_values)
+		# Get update values as results
 		results = current_board.get_dict()
 
 	return jsonify(**results)

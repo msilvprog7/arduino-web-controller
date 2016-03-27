@@ -1,4 +1,4 @@
-import uuid
+import re, uuid
 
 class Board:
 	""" A board for manipulating inputs on """
@@ -35,39 +35,89 @@ class Board:
 		if controls.has_key("rgb-led-groups") and type(controls["rgb-led-groups"]) is str:
 			# Set rgb led groups
 			rgb_led_groups = map(lambda x: int(x), filter(lambda x: x != "", controls["rgb-led-groups"].split(",")))
-			for rgb_leds in rgb_led_groups:
+			for i, rgb_leds in enumerate(rgb_led_groups):
 				# Add new RGB LED Group
-				print "New RGB LED Group of", rgb_leds, "LEDs"
-				self.rgb_led_groups.append(RGB_LED_Group(rgb_leds))
+				self.rgb_led_groups.append(RGB_LED_Group(rgb_leds, i))
+
+	def set_rgb_led_group(self, set_id, update_value):
+		""" Set all values in an RGB LED group """
+		for group in self.rgb_led_groups:
+			if group.id == set_id:
+				group.set_all(update_value)
+				return
+
+	def set_single_rgb(self, set_id, led_id, update_value):
+		""" Set a single RGB in an RGB LED group """
+		for group in self.rgb_led_groups:
+			if group.id == set_id:
+				group.set(led_id, update_value)
+				return
+
+	def update_controls(self, update_key, update_value):
+		""" Update controls based on a specific key and value """
+		# RGB Group update
+		rgb_led_set_updates = re.findall("led-set-\d+", update_key)
+		for set_update in rgb_led_set_updates:
+			set_id = int(set_update.rsplit("-")[2])
+			self.set_rgb_led_group(set_id, update_value)
+
+		# RGB update
+		rgb_led_update = re.findall("led-\d+-\d+", update_key)
+		for rgb_update in rgb_led_update:
+			split_values = rgb_update.rsplit("-")
+			set_id = int(split_values[1])
+			led_id = int(split_values[2])
+			self.set_single_rgb(set_id, led_id, update_value)
 
 class RGB_LED_Group:
 	""" A cluster of RGB LEDs """
 
-	def __init__(self, num):
+	def __init__(self, num, id):
 		"""Constructor """
 		self.reset(num)
+		self.id = id
 
 	def reset(self, num):
 		""" Reset the LEDs """
 		self.rgb_leds = []
-		for i in range(num):
-			self.add()
-		print "Created", len(self.rgb_leds), "RGB LEDs"
+		self.single_rgb_led = True
+		if num <= 0:
+			return
 
-	def add(self):
+		for i in range(num):
+			self.add(i)
+
+		self.single_rgb_led = len(self.rgb_leds) <= 1
+
+	def add(self, id):
 		""" Add an LED """
-		self.rgb_leds.append(RGB_LED())
+		self.rgb_leds.append(RGB_LED(id))
 
 	def get(self):
 		""" Get the values of the group """
-		return {"rgb-leds": [x.get() for x in self.rgb_leds]}
+		return {"rgb-leds": [x.get() for x in self.rgb_leds], "group_id": self.id}
+
+	def set_all(self, update_value):
+		""" Set all the values """
+		for led in self.rgb_leds:
+			print "Updating Set", self.id, "RGB", led.id, "to", update_value
+			led.set_value(update_value)
+
+	def set(self, led_id, update_value):
+		""" Set single value """
+		for led in self.rgb_leds:
+			if led.id == led_id:
+				print "Updating Set", self.id, "RGB", led_id, "to", update_value
+				led.set_value(update_value)
+				return
 
 class RGB_LED:
 	""" A single RGB LED """
 
-	def __init__(self):
+	def __init__(self, id):
 		""" Constructor """
 		self.set(0, 0, 0)
+		self.id = id
 
 	def set(self, r, g, b, mode=None):
 		""" Set value """
@@ -78,5 +128,14 @@ class RGB_LED:
 
 	def get(self):
 		""" Return dictionary of values """
-		return {"r": self.r, "g": self.g, "b": self.b, "mode": self.mode}
+		return {"r": self.r, "g": self.g, "b": self.b, "mode": self.mode, "id": self.id}
+
+	def set_value(self, value_str):
+		values = re.findall("\d+", value_str)
+
+		if len(values) < 3 or any([int(x) < 0 or int(x) > 255 for x in values]):
+			print "At least one value was invalid, rejecting transaction"
+			return
+
+		self.set(int(values[0]), int(values[1]), int(values[2]))
 
