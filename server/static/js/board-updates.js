@@ -2,10 +2,14 @@ $(document).ready(function () {
 	$(".led-button").click(changeLed);
 	$(".led-set-button").click(changeLedSet);
 	$("#rgbModalSave").click(saveRgbLed);
+	$(".pulse-button").click(pulseModalShow)
+	$("#pulseModalOff").click(pulseOff);
+	$("#pulseModalOn").click(pulseOn);
 });
 
 var rgbSaveStr = undefined,
-	rgbSaveSuccess = undefined;
+	rgbSaveSuccess = undefined,
+	pulse = undefined;
 
 var changeLed = function (e) {
 	var myMatches = $(this).attr("id").match(/\d+/g);
@@ -41,7 +45,6 @@ var changeLedSet = function (e) {
 		var ledId = 0,
 			currentLed = document.getElementById("led-" + setId + "-" + ledId);
 		while (currentLed !== null) {
-			console.log("led-" + setId + "-" + ledId);
 			$("#led-" + setId + "-" + ledId).css("background-color", rgbStr);
 			ledId++;
 			currentLed = document.getElementById("led-" + setId + "-" + ledId);
@@ -125,4 +128,101 @@ var saveRgbLed = function () {
 			console.error("Unable to save RGB data");
 		}
 	});
+};
+
+
+var pulseOn = function () {
+	var setId = parseInt($("#hiddenPulseSet").val());
+	pulse[setId].pulsing = true;
+	pulse[setId].ms = parseInt($("#pulseModalMS").val());
+	$("#pulseModal").modal("hide");
+	$("#pulse-" + setId).removeClass("btn-danger");
+	$("#pulse-" + setId).addClass("btn-success");
+	pulseRepeat(setId);
+};
+
+var pulseOff = function () {
+	var setId = parseInt($("#hiddenPulseSet").val());
+	pulse[setId].pulsing = false;
+	$("#pulseModal").modal("hide");
+	$("#pulse-" + setId).removeClass("btn-success");
+	$("#pulse-" + setId).addClass("btn-danger");
+};
+
+var randUChar = function () {
+	return Math.floor(Math.random() * 256);
+}
+
+var pulseRepeat = function (setId) {
+	var boardUrl = "/board/" + $("#hiddenBoardName").val();
+	$.ajax({
+		url: boardUrl,
+		type: "GET",
+		success: function (data) {
+			var rgb_leds = data["rgb-led-groups"][setId]["rgb-leds"],
+				updateStrBase = "led-" + setId + "-";
+			for (var i = rgb_leds.length - 1; i > 0; i--) {
+				var rgb = rgb_leds[i - 1]["r"] + "," + rgb_leds[i - 1]["g"] + "," + rgb_leds[i - 1]["b"];
+				$.ajax({
+					url: boardUrl,
+					type: "POST",
+					data: {"update-key": updateStrBase + i, "update-value": rgb}
+				});
+
+				$("#" + updateStrBase + i).css("background-color", "rgb(" + rgb + ")");
+			}
+
+			// Random first LED
+			var rgb = randUChar() + "," + randUChar() + "," + randUChar();
+			$.ajax({
+				url: boardUrl,
+				type: "POST",
+				data: {"update-key": updateStrBase + i, "update-value": rgb},
+			});
+			$("#" + updateStrBase + "0").css("background-color", "rgb(" + rgb + ")");
+
+			// Set timeout
+			if (pulse[setId].pulsing) {
+				setTimeout(function () {
+					pulseRepeat(setId);
+				}, pulse[setId].ms);
+			}
+		},
+		error: function () {
+			console.error("error getting board status");
+		}
+	});
+};
+
+var initPulse = function () {
+	pulse = []
+	for (var i = 0; i < parseInt($("#hiddenNumSets").val()); i++) {
+		pulse.push({pulsing: false, ms: 0});
+	}
+};
+
+
+var pulseModalShow = function () {
+	var myMatches = $(this).attr("id").match(/\d+/g);
+	if (myMatches === undefined || myMatches.length != 1) {
+		console.error($(this).attr("id") + " id not in pulse-setId format");
+		return;
+	}
+
+	if (pulse === undefined) {
+		initPulse();
+	}
+
+	var setId = parseInt(myMatches[0]);
+	$("#hiddenPulseSet").val(setId);
+	$("#pulseModalTitle").html("Pulse LEDs across Set " + setId);
+	if (pulse[setId].pulsing) {
+		$("#pulseModalOn").hide();
+		$("#pulseModalOff").show();
+	} else {
+		$("#pulseModalOff").hide();
+		$("#pulseModalOn").show();
+	}
+
+	$("#pulseModal").modal("show");
 };

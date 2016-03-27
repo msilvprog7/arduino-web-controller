@@ -81,6 +81,7 @@ class RGB_LED_Group:
 		""" Reset the LEDs """
 		self.rgb_leds = []
 		self.single_rgb_led = True
+		self.more_than_ten = False
 		if num <= 0:
 			return
 
@@ -88,6 +89,7 @@ class RGB_LED_Group:
 			self.add(i)
 
 		self.single_rgb_led = len(self.rgb_leds) <= 1
+		self.more_than_ten = len(self.rgb_leds) > 10
 
 	def add(self, id):
 		""" Add an LED """
