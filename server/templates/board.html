@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Arduino Web Controller - {% if board_name %} Board Does Not Exist {% else %} Board {{ board_name }}{% endif %}</title>
+		<title>Arduino Web Controller - {% if board %} Board Does Not Exist {% else %} Board {{ board.name }}{% endif %}</title>
 		<!-- CSS -->
 		<link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
 	</head>
@@ -31,13 +31,15 @@
 	</nav>
 
 	<!-- Main page -->
-	{% if board_name %}
+	{% if board %}
 	<div class="container">
 		<div class="row">
 			<div class="col-md-12">
 				<div class="jumbotron">
 					<div class="container">
-						<h2>{{ board_name }}</h2>
+						<h2>{{ board.name }} Board Controls</h2>
+						<div id="controlBoard">
+						</div>
 					</div>
 				</div>
 			</div>
@@ -61,6 +63,6 @@
 	<!-- JS -->
 	<script src="{{ url_for('static', filename='js/jquery-1.12.2.min.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
-	<script src="{{ url_for('static', filename='js/board-requests.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/board-updates.js') }}"></script>
 	</body>
 </html>
