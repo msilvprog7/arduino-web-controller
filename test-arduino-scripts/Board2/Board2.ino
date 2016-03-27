@@ -7,8 +7,8 @@
 #include <avr/power.h>
 #endif
 
-#define LONGEST_STRIP 16 // How many LEDs are in the longest LED strip
-const int noStrips = 2; // Number of strips (even if it's just 1 LED in a strip) are connected?
+#define LONGEST_STRIP 10 // How many LEDs are in the longest LED strip
+const int noStrips = 4; // Number of strips (even if it's just 1 LED in a strip) are connected?
 // ^^^^Important
 
 String readString;
@@ -37,10 +37,14 @@ void setup() {
   // Initialize the LED strip objects
 
   /* WS2812 define */
-  WS_LEDs[0][0] = 24; // Which pin
-  WS_LEDs[0][1] = 3; // How many LEDs
-  WS_LEDs[1][0] = 22; // Which pin
-  WS_LEDs[1][1] = 16; // How many LEDs
+  WS_LEDs[0][0] = 10; // Which pin
+  WS_LEDs[0][1] = 5; // How many LEDs
+  WS_LEDs[1][0] = 9; // Which pin
+  WS_LEDs[1][1] = 10; // How many LEDs
+  WS_LEDs[2][0] = 12; // Which pin
+  WS_LEDs[2][1] = 2; // How many LEDs
+  WS_LEDs[3][0] = 8; // Which pin
+  WS_LEDs[3][1] = 1; // How many LEDs
   
   for (int i = 0; i < noStrips; i++) {
     strips[i] = Adafruit_NeoPixel(WS_LEDs[i][1], WS_LEDs[i][0], NEO_GRB + NEO_KHZ800);

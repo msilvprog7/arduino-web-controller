@@ -7,8 +7,8 @@
 #include <avr/power.h>
 #endif
 
-#define LONGEST_STRIP 16 // How many LEDs are in the longest LED strip
-const int noStrips = 2; // Number of strips (even if it's just 1 LED in a strip) are connected?
+#define LONGEST_STRIP 15 // How many LEDs are in the longest LED strip
+const int noStrips = 1; // Number of strips (even if it's just 1 LED in a strip) are connected?
 // ^^^^Important
 
 String readString;
@@ -38,12 +38,15 @@ void setup() {
 
   /* WS2812 define */
   WS_LEDs[0][0] = 24; // Which pin
-  WS_LEDs[0][1] = 3; // How many LEDs
-  WS_LEDs[1][0] = 22; // Which pin
-  WS_LEDs[1][1] = 16; // How many LEDs
+  WS_LEDs[0][1] = 15; // How many LEDs
   
+  int max_cols = 0;
   for (int i = 0; i < noStrips; i++) {
-    strips[i] = Adafruit_NeoPixel(WS_LEDs[i][1], WS_LEDs[i][0], NEO_GRB + NEO_KHZ800);
+    max_cols = WS_LEDs[i][1];
+    if (max_cols >= 15) {
+      max_cols = max_cols * 2; 
+    }
+    strips[i] = Adafruit_NeoPixel(max_cols, WS_LEDs[i][0], NEO_GRB + NEO_KHZ800);
   }
   for (int i = 0; i < noStrips; i++) {
     strips[i].begin();
@@ -161,10 +164,26 @@ String getString() {
 
 // Refresh the LED strips
 void updateStrips() {
+  int cols = 0;
+  int max_cols = 0;
+  int current_j = 0;
+  
   for (int i = 0; i < noStrips; i++) {
-    for (int j = 0; j < WS_LEDs[i][1]; j++) {
+    cols = WS_LEDs[i][1];
+    max_cols = WS_LEDs[i][1];
+    current_j = 0;
+    if (cols >= 15) {
+      max_cols = WS_LEDs[i][1] * 2;
+    }
+    
+    for (int j = 0; j < max_cols; j++) {
       // Set strip i pin j to the given RGB values
-      strips[i].setPixelColor(j, LED_Values[i][j][0], LED_Values[i][j][1], LED_Values[i][j][2]);
+      strips[i].setPixelColor(j, LED_Values[i][current_j][0], LED_Values[i][current_j][1], LED_Values[i][current_j][2]);
+      
+      current_j++;
+      if (current_j == cols) {
+        current_j = 0;
+      }
     }
     strips[i].show();
   }

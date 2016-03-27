@@ -2,7 +2,7 @@ import requests, serial, sys, time, yaml
 from board import RGB_LED, RGB_LED_Group
 
 url = "http://127.0.0.1:5000"
-ping_server_ms = 1000 / 30
+ping_server_ms = 1000 / 10
 
 # Functions---------------------------------Start
 
@@ -112,10 +112,11 @@ def main():
 	tmpResponse = 0
 	tmpCounter = 0
 	numStrips = int(float(grabCommaDel(ard))) # the number of strips should be the first thing sent
-	#print "The number of strips is", numStrips
+	print "The number of strips is", numStrips
 	while(tmpCounter < numStrips): # Loop through all of the connected strips
 		tmpCounter = tmpCounter + 1
 		tmpNumLEDResponse = int(float(grabCommaDel(ard)))
+		print tmpNumLEDResponse
 		ledGroupList.append(RGB_LED_Group(tmpNumLEDResponse, tmpCounter))
 	# ledGroupList should now contain all of the LED groups------------------------End	
 
