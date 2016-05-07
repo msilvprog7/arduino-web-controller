@@ -1,12 +1,272 @@
-$(document).ready(function () {
-	$(".led-button").click(changeLed);
-	$(".led-set-button").click(changeLedSet);
-	$("#rgbModalSave").click(saveRgbLed);
-	$(".pulse-button").click(pulseModalShow)
-	$("#pulseModalOff").click(pulseOff);
-	$("#pulseModalOn").click(pulseOn);
-});
+/**
+ * API to interact with the board
+ */
+var BoardAPI = (function () {
+	var name,
+		board;
 
+	return {
+		/**
+		 * Base URL for boards
+		 */
+		BOARD_ROUTE: "/board/",
+
+		/**
+		 * Milliseconds till next board update/get
+		 */
+		RETRIEVE_TIMEOUT_MS: 100,
+
+		/**
+		 * Types of Controls
+		 */
+		TYPES: {
+			/**
+			 * RGB LED Groups
+			 */
+			RGB_LED_GROUPS: {
+				name: "rgb-led-groups", 
+				component: "rgb-led",
+				components: "rgb-leds",
+				group: true,
+				parse: function (v) { return "rgb(" + v.r + "," + v.g + "," + v.b + ")"; }
+			}
+		},
+
+		/**
+		 * Initialize the board
+		 */
+		init: function (boardName) {
+			if (boardName === undefined) {
+				return;
+			}
+
+			name = boardName;
+			board = {};
+			BoardAPI.get();
+		},
+
+		/**
+		 * Update a type of control on the board
+		 */
+		update: function (type, values) {
+			board[type] = values;
+		},
+
+		/**
+		 * Display board controls with current values
+		 */
+		display: function () {
+			var typeParams,
+				componentSelector;
+
+			// Iterate over different board control types
+			Object.keys(board).forEach(function (type) {
+				typeParams = BoardAPI.TYPES[type];
+
+				// Handle groups in the appropriate manner
+				if (typeParams.group) {
+					// Iterate over groups
+					board[type].forEach(function (group, groupId) {
+						componentSelector = "#" + typeParams.component + "-" + groupId + "-";
+						// Iterate over items in groups
+						group[typeParams.components].forEach(function (item, itemId) {
+							$(componentSelector + itemId).css("background-color", typeParams.parse(item));
+						});
+					});
+				} else {
+					componentSelector = "#" + typeParams.component + "-";
+
+					// Iterate over items
+					board[type].forEach(function (item, itemId) {
+						$(componentSelector + itemId).css("background-color", typeParams.parse(item));
+					});
+				}
+			});
+		},
+
+		/**
+		 * Customize the modal on the page
+		 */
+		modal: {
+			set: function (title, body, saveFcn) {
+				$("#modalTitle").html(title);
+				$("#modalBody").html(body);
+				$("#modalSave").click(function () { saveFcn(); });
+			},
+
+			show: function () {
+				$("#modal").modal("show");
+			},
+
+			hide: function () {
+				$("#modal").modal("hide");
+			}
+		},
+
+		/**
+		 * Controls that the website can use to modify the board
+		 */
+		controls: {
+			/**
+			 * For a Single RGB LED
+			 */
+			RGB_LED: {
+				group: undefined,
+				led: undefined,
+				modalTitle: "Set the RGB LED",
+				modalBody: "<p>R: <input id='modalR' type='number' min='0' max='255' /> G: <input id='modalG' type='number' min='0' max='255' /> B: <input id='modalB' type='number' min='0' max='255' /></p>",
+				command: "rgb-led",
+
+				/**
+				 * Show the modal
+				 */
+				show: function (groupId, ledId) {
+					BoardAPI.controls.RGB_LED.group = groupId;
+					BoardAPI.controls.RGB_LED.led = ledId;
+					BoardAPI.modal.set(BoardAPI.controls.RGB_LED.modalTitle, BoardAPI.controls.RGB_LED.modalBody, BoardAPI.controls.RGB_LED.modalSave);
+					BoardAPI.modal.show();
+				},
+
+				/**
+				 * Save the modal
+				 */
+				modalSave: function () {
+					var intValues = "" + BoardAPI.controls.RGB_LED.group + "," + BoardAPI.controls.RGB_LED.led + "," +
+									$("#modalR").val() + "," + $("#modalG").val() + "," + $("#modalB").val();
+					BoardAPI.post(BoardAPI.controls.RGB_LED.command, intValues);
+					BoardAPI.modal.hide();
+				}
+			},
+
+			/**
+			 * For a Group of RGB LEDs
+			 */
+			RGB_LEDs: {
+				group: undefined,
+				modalTitle: "Set the RGB LED",
+				modalBody: "<p>R: <input id='modalR' type='number' min='0' max='255' /> G: <input id='modalG' type='number' min='0' max='255' /> B: <input id='modalB' type='number' min='0' max='255' /></p>",
+
+				/**
+				 * Show the modal
+				 */
+				show: function (groupId) {
+					BoardAPI.controls.RGB_LEDs.group = groupId;
+					BoardAPI.modal.set(BoardAPI.controls.RGB_LEDs.modalTitle, BoardAPI.controls.RGB_LEDs.modalBody, BoardAPI.controls.RGB_LEDs.modalSave);
+				},
+
+				/**
+				 * Save the modal
+				 */
+				modalSave: function () {
+					BoardAPI.modal.hide();
+				}
+			},
+
+			/**
+			 * For a Group Pulse
+			 */
+			pulse: {
+				group: undefined,
+				modalTitle: "Set the RGB LED",
+				modalBody: "<p>R: <input id='modalR' type='number' min='0' max='255' /> G: <input id='modalG' type='number' min='0' max='255' /> B: <input id='modalB' type='number' min='0' max='255' /></p>",
+
+				/**
+				 * Show the modal
+				 */
+				show: function (groupId) {
+					BoardAPI.controls.pulse.group = groupId;
+					BoardAPI.modal.set(BoardAPI.controls.pulse.modalTitle, BoardAPI.controls.pulse.modalBody, BoardAPI.controls.pulse.modalSave);
+				},
+
+				/**
+				 * Save the modal
+				 */
+				modalSave: function () {
+					BoardAPI.modal.hide();
+				}
+			},
+
+			/**
+			 * For a Group Tweet
+			 */
+			tweet: {
+				group: undefined,
+				modalTitle: "Set RGB LEDs to reflect Tweets",
+				modalBody: "<p>R: <input id='modalR' type='number' min='0' max='255' /> G: <input id='modalG' type='number' min='0' max='255' /> B: <input id='modalB' type='number' min='0' max='255' /></p>",
+
+				/**
+				 * Show the modal
+				 */
+				show: function (groupId) {
+					BoardAPI.controls.tweet.group = groupId;
+					BoardAPI.modal.set(BoardAPI.controls.tweet.modalTitle, BoardAPI.controls.tweet.modalBody, BoardAPI.controls.tweet.modalSave);
+				},
+
+				/**
+				 * Save the modal
+				 */
+				modalSave: function () {
+					BoardAPI.modal.hide();
+				}
+			}
+		},
+
+		/**
+		 * Get the board and update controls
+		 */
+		get: function () {
+			$.ajax({
+				url: BoardAPI.BOARD_ROUTE + name,
+				type: "GET",
+				success: function (data) {
+					var name;
+
+					// Iterate over board output types
+					Object.keys(BoardAPI.TYPES).forEach(function (type) {
+						// Update client for server entries
+						name = BoardAPI.TYPES[type].name;
+						if (data[name] !== undefined) {
+							BoardAPI.update(type, data[name]);
+						}
+					});
+
+					// Display updates made
+					BoardAPI.display();
+
+					setTimeout(BoardAPI.get, BoardAPI.RETRIEVE_TIMEOUT);
+				},
+				error: function () { console.error("error getting board status"); }
+			});
+		},
+
+		/**
+		 * Post to update a part of the board 
+		 */
+		post: function (command, intValues, strValues) {
+			$.ajax({
+				url: BoardAPI.BOARD_ROUTE + name,
+				data: {
+					"command": command,
+					"int-values": intValues,
+					"str-values": strValues
+				},
+				type: "POST",
+				success: function (data) {
+					// Wait till next display to get results
+				},
+				error: function () { console.error("error getting board status"); }
+			});
+		}
+	};
+})();
+
+
+
+
+
+
+
+/*
 var rgbSaveStr = undefined,
 	rgbSaveSuccess = undefined,
 	pulse = undefined;
@@ -197,7 +457,6 @@ var initPulse = function () {
 	}
 };
 
-
 var pulseModalShow = function () {
 	var myMatches = $(this).attr("id").match(/\d+/g);
 	if (myMatches === undefined || myMatches.length != 1) {
@@ -222,3 +481,4 @@ var pulseModalShow = function () {
 
 	$("#pulseModal").modal("show");
 };
+*/

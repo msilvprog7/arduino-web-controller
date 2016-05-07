@@ -38,25 +38,23 @@
 			<div class="col-md-12">
 				<div class="jumbotron">
 					<div class="container">
-						<!-- Modals -->
-						<div id="rgbModal" class="modal fade">
+						<!-- Modal -->
+						<div id="modal" class="modal fade">
 						    <div class="modal-dialog">
 						        <div class="modal-content">
 						            <div class="modal-header">
 						                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-						                <h4 class="modal-title"><span id="rgbModalTitle"></span></h4>
+						                <h4 class="modal-title">
+						                	<!-- Fill with title -->
+						                	<span id="modalTitle"></span>
+						               	</h4>
 						            </div>
-						            <div class="modal-body">
-						                <p>
-						                	R: <input id="rgbModalR" type="number" min="0" max="255" />
-						                	G: <input id="rgbModalG" type="number" min="0" max="255" />
-						                	B: <input id="rgbModalB" type="number" min="0" max="255" />
-						                </p>
-						                <input id="hiddenBoardName" type="text" style="display: none;" readonly value="{{ board.name }}" />
+						            <div id="modalBody" class="modal-body">
+						            	<!-- Fill with modal content -->
 						            </div>
 						            <div class="modal-footer">
 						                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-						                <button id="rgbModalSave" type="button" class="btn btn-primary">Save</button>
+						                <button id="modalSave" type="button" class="btn btn-primary">Save</button>
 						            </div>
 						        </div>
 						    </div>
@@ -93,28 +91,60 @@
 									<div class="panel panel-default">
 										<div class="panel-body">
 										{% for rgb in rgb_led_group.rgb_leds %}
-											<button id="led-{{ rgb_led_group.id }}-{{ rgb.id }}" class="btn led-button" type="button" 
+											<!-- Single RGB LED -->
+											<button id="rgb-led-{{ rgb_led_group.id }}-{{ rgb.id }}" 
+													onclick="BoardAPI.controls.RGB_LED.show({{ rgb_led_group.id}}, {{ rgb.id }})"
+													class="btn led-button" type="button" 
 													style="background-color: rgb({{ rgb.r }}, {{ rgb.g }}, {{ rgb.b }}) !important;">+</button>
-											<button id="pulse-{{ rgb_led_group.id }}" type="button" class="btn btn-danger pulse-button">pulse</button>
+
+											<!-- Pulse -->
+											<button onclick="BoardAPI.controls.pulse.show({{ rgb_led_group.id }})" 
+													type="button" class="btn btn-danger pulse-button">pulse</button>
+
+											<!-- Tweet -->
+											<button onclick="BoardAPI.controls.tweet.show({{ rgb_led_group.id }})" 
+													type="button" class="btn btn-info tweet-button">tweet</button>
 										{% endfor %}
 										</div>
 									</div>
 								{% elif rgb_led_group.more_than_ten %}
 									<div class="panel panel-default">
 										<div class="panel-body">
-											<button id="led-set-{{ rgb_led_group.id }}" type="button" class="btn btn-primary led-set-button">all {{ rgb_led_group.rgb_leds|length }}</button>
-											<button id="pulse-{{ rgb_led_group.id }}" type="button" class="btn btn-danger pulse-button">pulse</button>
+											<!-- Group of RGB LEDs -->
+											<button id="rgb-led-{{ rgb_led_group.id }}-0" 
+													onclick="BoardAPI.controls.RGB_LEDs.show({{ rgb_led_group.id }})"
+													type="button" class="btn btn-primary led-set-button">all {{ rgb_led_group.rgb_leds|length }}</button>
+
+											<!-- Pulse -->
+											<button onclick="BoardAPI.controls.pulse.show({{ rgb_led_group.id }})" 
+													type="button" class="btn btn-danger pulse-button">pulse</button>
+
+											<!-- Tweet -->
+											<button onclick="BoardAPI.controls.tweet.show({{ rgb_led_group.id }})"
+													type="button" class="btn btn-info tweet-button">tweet</button>
 										</div>
 									</div>
 								{% else %}
 									<div class="panel panel-default">
 										<div class="panel-body">
 											{% for rgb in rgb_led_group.rgb_leds %}
-												<button id="led-{{ rgb_led_group.id }}-{{ rgb.id }}" class="btn led-button" type="button" 
+												<!-- Single RGB LED -->
+												<button id="rgb-led-{{ rgb_led_group.id }}-{{ rgb.id }}" 
+														onclick="BoardAPI.controls.RGB_LED.show({{ rgb_led_group.id}}, {{ rgb.id }})"
+														class="btn led-button" type="button" 
 														style="background-color: rgb({{ rgb.r }}, {{ rgb.g }}, {{ rgb.b }}) !important;">+</button>
 											{% endfor %}
-											<button id="led-set-{{ rgb_led_group.id }}" type="button" class="btn btn-primary led-set-button">all</button>
-											<button id="pulse-{{ rgb_led_group.id }}" type="button" class="btn btn-danger pulse-button">pulse</button>
+											<!-- Group of RGB LEDs -->
+											<button onclick="BoardAPI.controls.RGB_LEDs.show({{ rgb_led_group.id }})"
+													type="button" class="btn btn-primary led-set-button">all</button>
+
+											<!-- Pulse -->
+											<button onclick="BoardAPI.controls.pulse.show({{ rgb_led_group.id }})"
+													type="button" class="btn btn-danger pulse-button">pulse</button>
+
+											<!-- Tweet -->
+											<button onclick="BoardAPI.controls.tweet.show({{ rgb_led_group.id }})" 
+													type="button" class="btn btn-info tweet-button">tweet</button>
 										</div>
 									</div>
 								{% endif %}
@@ -144,5 +174,10 @@
 	<script src="{{ url_for('static', filename='js/jquery-1.12.2.min.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/board-updates.js') }}"></script>
+	<script type="text/javascript">
+		$(document).ready(function () {
+			BoardAPI.init({% if board %} "{{ board.name }}" {% else %} undefined {% endif %});
+		});
+	</script>
 	</body>
 </html>

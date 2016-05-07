@@ -94,11 +94,12 @@ def get_board_status(name):
 		results = current_board.get_dict()
 	elif request.method == 'POST' and current_board is not None:
 		# Update board info
-		update_key = str(request.form['update-key']) if 'update-key' in request.form else ""
-		update_values = str(request.form['update-value']) if 'update-value' in request.form else ""
-		print update_key, update_values
+		command = str(request.form['command']) if 'command' in request.form else ""
+		int_values = str(request.form['int-values']) if 'int-values' in request.form else ""
+		str_values = str(request.form['str-values']) if 'str-values' in request.form else ""
+		print command, int_values, str_values
 		# Update control value
-		current_board.update_controls(update_key, update_values)
+		current_board.update_controls(command, int_values, str_values)
 		# Get update values as results
 		results = current_board.get_dict()
 

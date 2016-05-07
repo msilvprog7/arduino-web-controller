@@ -39,41 +39,39 @@ class Board:
 				# Add new RGB LED Group
 				self.rgb_led_groups.append(RGB_LED_Group(rgb_leds, i))
 
-	def set_rgb_led_group(self, set_id, update_value):
+	def set_rgb_led_group(self, set_id, value):
 		""" Set all values in an RGB LED group """
 		for group in self.rgb_led_groups:
 			if group.id == set_id:
-				group.set_all(update_value)
+				group.set_all(value)
 				return
 
-	def set_single_rgb(self, set_id, led_id, update_value):
+	def set_single_rgb(self, set_id, led_id, value):
 		""" Set a single RGB in an RGB LED group """
 		for group in self.rgb_led_groups:
 			if group.id == set_id:
-				group.set(led_id, update_value)
+				group.set(led_id, value)
 				return
 
-	def update_controls(self, update_key, update_value):
-		""" Update controls based on a specific key and value """
-		# RGB Group update
-		rgb_led_set_updates = re.findall("led-set-\d+", update_key)
-		for set_update in rgb_led_set_updates:
-			set_id = int(set_update.rsplit("-")[2])
-			self.set_rgb_led_group(set_id, update_value)
+	def update_controls(self, command, int_values, str_values):
+		""" Update controls based on a specific command and int values """
+		# Parse values
+		int_values = [int(x) for x in re.findall("\d+", int_values)]
+		str_values = [str(x) for x in re.findall("\w+", str_values)]
 
-		# RGB update
-		rgb_led_update = re.findall("led-\d+-\d+", update_key)
-		for rgb_update in rgb_led_update:
-			split_values = rgb_update.rsplit("-")
-			set_id = int(split_values[1])
-			led_id = int(split_values[2])
-			self.set_single_rgb(set_id, led_id, update_value)
-
-		# Pulse
-		pulse_update = re.findall("pulse-\d+", update_key)
-		for set_pulse in pulse_update:
-			set_id = int(set_pulse.rsplit("-")[1])
-			self.rgb_led_groups[set_id].pulse(update_value)
+		# Commands
+		if command == "rgb-led" and len(int_values) == 5:
+			# Set a single RGB LED: group id, led id, rgb
+			self.set_single_rgb(int_values[0], int_values[1], int_values[2:])
+		elif command == "rgb-leds" and len(int_values) == 4:
+			# Set a group of RGB LEDs: group id, rgb
+			self.set_rgb_led_group(int_values[0], int_values[1:])
+		elif command == "pulse" and len(int_values) == 4:
+			# Pulse through the RGB LEDs
+			self.rgb_led_groups[int_values[0]].pulse(int_values[1:])
+		elif command == "tweet" and len(str_values) == 3:
+			# Map a tweet to the RGB LEDs
+			pass
 
 class RGB_LED_Group:
 	""" A cluster of RGB LEDs """
@@ -105,25 +103,25 @@ class RGB_LED_Group:
 		""" Get the values of the group """
 		return {"rgb-leds": [x.get() for x in self.rgb_leds], "group_id": self.id}
 
-	def set_all(self, update_value):
+	def set_all(self, value):
 		""" Set all the values """
 		for led in self.rgb_leds:
-			print "Updating Set", self.id, "RGB", led.id, "to", update_value
-			led.set_value(update_value)
+			print "Updating Set", self.id, "RGB", led.id, "to", value
+			led.set_value(value)
 
-	def set(self, led_id, update_value):
+	def set(self, led_id, value):
 		""" Set single value """
 		for led in self.rgb_leds:
 			if led.id == led_id:
-				print "Updating Set", self.id, "RGB", led_id, "to", update_value
-				led.set_value(update_value)
+				print "Updating Set", self.id, "RGB", led_id, "to", value
+				led.set_value(value)
 				return
 
-	def pulse(self, update_value):
+	def pulse(self, rgb):
 		""" Shift all and set first """
 		for i in reversed(range(len(self.rgb_leds) - 1)):
 			if i == 0:
-				self.rgb_leds[i].set_value(update_value)
+				self.rgb_leds[i].set_value(rgb)
 			else:
 				self.rgb_leds[i].set_dict(self.rgb_leds[i - 1].get())
 
@@ -146,9 +144,7 @@ class RGB_LED:
 		""" Return dictionary of values """
 		return {"r": self.r, "g": self.g, "b": self.b, "mode": self.mode, "id": self.id}
 
-	def set_value(self, value_str):
-		values = re.findall("\d+", value_str)
-
+	def set_value(self, values):
 		if len(values) < 3 or any([int(x) < 0 or int(x) > 255 for x in values]):
 			print "At least one value was invalid, rejecting transaction"
 			return
