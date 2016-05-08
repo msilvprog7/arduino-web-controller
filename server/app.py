@@ -13,7 +13,6 @@ name_generator = names.NameGenerator()
 
 # Start thread for Tweet Analyzer
 tweet_analyzer = TweetAnalyzer()
-tweet_analyzer.start()
 
 
 def has_board(board_name):

@@ -1,4 +1,4 @@
-import random, re, threading, time, tweepy, uuid
+import random, re, thread, threading, time, tweepy, uuid
 
 class Board:
 	""" A board for manipulating inputs on """
@@ -132,12 +132,21 @@ class RGB_LED_Group:
 	def tweet(self, categories):
 		""" Start analyzing tweets periodically """
 		print "tweet", categories
-		self.tweets = {"last-update": TweetAnalyzer.current_ms(), "categories": map(lambda category: {"name": category, "count": 0}, categories)}
+		self.tweets = {"last-update": TweetAnalyzer.current_ms(), "categories": map(lambda category: {"name": category, "count": 0}, categories), \
+			"lock": threading.Lock()}
 		tweet_analyzer = TweetAnalyzer()
 		tweet_analyzer.add(self)
 
+	def add_to_tweet_category(self, category_index, amount=1):
+		""" Add amount to tweet category """
+		self.tweets["lock"].acquire()
+		print "tweet", self.id, "add", amount, "to", self.tweets["categories"][category_index]["name"]
+		self.tweets["categories"][category_index]["count"] += amount
+		self.tweets["lock"].release()
+
 	def display_tweets(self):
 		""" Update the RGB LEDs based on the tweet counts """
+		self.tweets["lock"].acquire()
 		# Get counts
 		rgb = []
 		total_count = 0
@@ -151,11 +160,14 @@ class RGB_LED_Group:
 		
 		# Set rgb values
 		self.set_all(rgb)
+		self.tweets["lock"].release()
 
 	def reset_tweets(self):
 		""" Reset the counts for tweet categories """
+		self.tweets["lock"].acquire()
 		for category in self.tweets["categories"]:
 				category["count"] = 0
+		self.tweets["lock"].release()
 
 	def untweet(self):
 		""" Stop analyzing tweets """
@@ -210,22 +222,27 @@ class Singleton(type):
 			cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
 		return cls._instances[cls]
 
-class TweetAnalyzer(threading.Thread):
+class TweetAnalyzer():
 	""" Analyze tweets for different boards with RGB LED groups """
 	__metaclass__ = Singleton
-	RETRIEVE_TIME_BETWEEN = 0.1 # Tenth of a second between
-	RETRIEVE_TIMEOUT = 10 # Every 10 seconds
-	ANALYSIS_DURATION = 60000 # Every minute, in ms
+	ANALYSIS_DURATION = 60 # Every minute, in seconds
+	LANGUAGES = ["en"]
 	PROPERTIES_FILE = "resources/twitter.properties"
 
 	def __init__(self):
 		""" Constructor """
-		threading.Thread.__init__(self)
-		self.rgb_led_groups = []
-		self.rgb_led_groups_lock = threading.Lock()
+		self.rgb_led_stream_listeners = {}
+		self.rgb_led_streams = {}
+		self.rgb_led_streams_lock = threading.Lock()
 		self.load_properties()
 
+	@staticmethod
+	def current_ms():
+		""" Get the current time in Milliseconds """
+		return int(round(time.time() * 1000))
+
 	def get_key(self, key):
+		""" Get property by key """
 		return self.properties[key] if key in self.properties else ""
 
 	def load_properties(self):
@@ -245,56 +262,77 @@ class TweetAnalyzer(threading.Thread):
 		self.__auth.set_access_token(self.get_key("ACCESS_TOKEN"), self.get_key("ACCESS_TOKEN_SECRET"))
 		self.__api = tweepy.API(self.__auth)
 
-	@staticmethod
-	def current_ms():
-		""" Get the current time in Milliseconds """
-		return int(round(time.time() * 1000))
-
 	def add(self, rgb_led_group):
 		""" Add an rgb_led_group to the analysis """
-		self.rgb_led_groups_lock.acquire()
-		print "Adding RGB LED Group", rgb_led_group.id
-		self.rgb_led_groups.append(rgb_led_group)
-		self.rgb_led_groups_lock.release()
+		# Remove just in case
+		self.remove(rgb_led_group)
+
+		# Lock section
+		self.rgb_led_streams_lock.acquire()
+
+
+		# Create listener for stream
+		stream_listener = RGB_LEDStreamListener(rgb_led_group)
+
+		# Create stream
+		stream = tweepy.Stream(auth=self.__auth, listener=stream_listener)
+
+		# Start stream in a thread
+		stream.filter(track=map(lambda category: category["name"], rgb_led_group.tweets["categories"]), async=True, languages=TweetAnalyzer.LANGUAGES)
+
+		# Add to dictionary of listeners and streams
+		self.rgb_led_stream_listeners[rgb_led_group.id] = stream_listener
+		self.rgb_led_streams[rgb_led_group.id] = stream
+
+
+		# Release lock
+		self.rgb_led_streams_lock.release()
 
 	def remove(self, rgb_led_group):
 		""" Remove an rgb_led_group from the analysis """
-		self.rgb_led_groups_lock.acquire()
-		print "Removing RGB LED Group", rgb_led_group.id
-		self.rgb_led_groups.remove(rgb_led_group)
-		self.rgb_led_groups_lock.release()
+		self.rgb_led_streams_lock.acquire()
 
-	def fetch_tweets(self, rgb_led_group):
-		""" Fetch tweets for the RGB LED Group """
-		print "TweetAnalyzer", rgb_led_group.id, rgb_led_group.tweets["categories"]
-
-		curr_time = TweetAnalyzer.current_ms()
-
-		if curr_time >= (rgb_led_group.tweets["last-update"] + TweetAnalyzer.ANALYSIS_DURATION):
-			# Display data
-			rgb_led_group.display_tweets()
-			# Reset counts
-			rgb_led_group.reset_tweets()
-			# Update time
-			rgb_led_group.tweets["last-update"] = curr_time
-			print "TweetAnalyzer", rgb_led_group.id, "RESET"
+		# Stop stream listener and remove it
+		if rgb_led_group.id in self.rgb_led_stream_listeners:
+			self.rgb_led_stream_listeners[rgb_led_group.id].running = False
+			self.rgb_led_stream_listeners.pop(rgb_led_group.id)
 		
-		# Get a tweet that filters on categories
-		# Update counts
-		rgb_led_group.tweets["categories"][0]["count"] += random.randint(0, 100)
-		rgb_led_group.tweets["categories"][1]["count"] += random.randint(0, 100)
-		rgb_led_group.tweets["categories"][2]["count"] += random.randint(0, 100)
+		# Stop stream and remove
+		if rgb_led_group.id in self.rgb_led_streams:
+			print "Removing RGB LED Group", rgb_led_group.id
+			self.rgb_led_streams[rgb_led_group.id].running = False
+			self.rgb_led_streams.pop(rgb_led_group.id, None)
 
-	def run(self):
-		""" Analyze tweets for RGB LED Groups """
-		while True:
-			# Collect tweets
-			self.rgb_led_groups_lock.acquire()
-			print "TweetAnalyzer", len(self.rgb_led_groups), "groups"
-			for rgb_led_group in self.rgb_led_groups:
-				self.fetch_tweets(rgb_led_group)
-				time.sleep(TweetAnalyzer.RETRIEVE_TIME_BETWEEN)
-			self.rgb_led_groups_lock.release()
+		self.rgb_led_streams_lock.release()
 
-			# Wait for timeout
-			time.sleep(TweetAnalyzer.RETRIEVE_TIMEOUT)
+class RGB_LEDStreamListener(tweepy.StreamListener):
+	""" Handle a stream of tweets for an RGB_LED_Group """
+
+	def __init__(self, rgb_led_group):
+		""" Constructor """
+		self.rgb_led_group = rgb_led_group
+		self.categories = map(lambda category: category["name"].lower(), rgb_led_group.tweets["categories"])
+		self.running = True
+		thread.start_new_thread(RGB_LEDStreamListener.update_RGB_LEDs, (self, ))
+		super(RGB_LEDStreamListener, self).__init__()
+
+	def determine_category(self, tweet):
+		""" Return index of category with highest similarity """
+		totals = []
+		for category in self.categories:
+			relevance = sum([tweet.count(word) for word in category.split()])
+			totals.append(relevance)
+
+		# Assume one will only have the highest similarity
+		return totals.index(max(totals))
+
+	def on_status(self, status):
+		""" Handle an incoming status """
+		category = self.determine_category(status.text.lower())
+		self.rgb_led_group.add_to_tweet_category(category)
+
+	def update_RGB_LEDs(self):
+		""" Update the RGB LEDs periodically """
+		while self.running:
+			time.sleep(TweetAnalyzer.ANALYSIS_DURATION)
+			self.rgb_led_group.display_tweets()
