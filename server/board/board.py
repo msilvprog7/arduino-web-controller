@@ -1,4 +1,4 @@
-import random, re, threading, time, uuid
+import random, re, threading, time, tweepy, uuid
 
 class Board:
 	""" A board for manipulating inputs on """
@@ -216,12 +216,34 @@ class TweetAnalyzer(threading.Thread):
 	RETRIEVE_TIME_BETWEEN = 0.1 # Tenth of a second between
 	RETRIEVE_TIMEOUT = 10 # Every 10 seconds
 	ANALYSIS_DURATION = 60000 # Every minute, in ms
+	PROPERTIES_FILE = "resources/twitter.properties"
 
 	def __init__(self):
 		""" Constructor """
 		threading.Thread.__init__(self)
 		self.rgb_led_groups = []
 		self.rgb_led_groups_lock = threading.Lock()
+		self.load_properties()
+
+	def get_key(self, key):
+		return self.properties[key] if key in self.properties else ""
+
+	def load_properties(self):
+		""" Load properties for Twitter Auth """
+		# Load properties 
+		self.properties = {}
+		with open(TweetAnalyzer.PROPERTIES_FILE, 'r') as propFile:
+			for line in propFile:
+				# Remove comments, remove whitespace to get key=value, and separate
+				key_val = line.split("#", 1)[0].strip().split("=", 1)
+				if len(key_val) != 2:
+					continue
+				# Store key value
+				self.properties[key_val[0]] = key_val[1]
+
+		self.__auth = tweepy.OAuthHandler(self.get_key("CONSUMER_KEY"), self.get_key("CONSUMER_SECRET"))
+		self.__auth.set_access_token(self.get_key("ACCESS_TOKEN"), self.get_key("ACCESS_TOKEN_SECRET"))
+		self.__api = tweepy.API(self.__auth)
 
 	@staticmethod
 	def current_ms():
