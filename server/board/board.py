@@ -1,4 +1,6 @@
-import random, re, thread, threading, time, tweepy, uuid
+from __future__ import division
+import math, random, re, thread, threading, time, tweepy, uuid
+
 
 class Board:
 	""" A board for manipulating inputs on """
@@ -110,14 +112,14 @@ class RGB_LED_Group:
 	def set_all(self, value):
 		""" Set all the values """
 		for led in self.rgb_leds:
-			print "Updating Set", self.id, "RGB", led.id, "to", value
+			# print "Updating Set", self.id, "RGB", led.id, "to", value
 			led.set_value(value)
 
 	def set(self, led_id, value):
 		""" Set single value """
 		for led in self.rgb_leds:
 			if led.id == led_id:
-				print "Updating Set", self.id, "RGB", led_id, "to", value
+				# print "Updating Set", self.id, "RGB", led_id, "to", value
 				led.set_value(value)
 				return
 
@@ -129,9 +131,17 @@ class RGB_LED_Group:
 			else:
 				self.rgb_leds[i].set_dict(self.rgb_leds[i - 1].get())
 
+	def fade(self, rgb, time_delta, duration, fcn):
+		""" Fade all over duration """
+		current_t = 0.0
+		t_chunks = (time_delta / duration)
+		while current_t <= 1.0:
+			self.set_all(map(lambda v: int(math.floor(v*fcn(current_t))), rgb))
+			current_t += t_chunks
+			time.sleep(time_delta)
+
 	def tweet(self, categories):
 		""" Start analyzing tweets periodically """
-		print "tweet", categories
 		self.tweets = {"last-update": TweetAnalyzer.current_ms(), "categories": map(lambda category: {"name": category, "count": 0}, categories), \
 			"lock": threading.Lock()}
 		tweet_analyzer = TweetAnalyzer()
@@ -140,27 +150,28 @@ class RGB_LED_Group:
 	def add_to_tweet_category(self, category_index, amount=1):
 		""" Add amount to tweet category """
 		self.tweets["lock"].acquire()
-		print "tweet", self.id, "add", amount, "to", self.tweets["categories"][category_index]["name"]
+		# print "tweet", self.id, "add", amount, "to", self.tweets["categories"][category_index]["name"]
 		self.tweets["categories"][category_index]["count"] += amount
 		self.tweets["lock"].release()
 
 	def display_tweets(self):
 		""" Update the RGB LEDs based on the tweet counts """
-		self.tweets["lock"].acquire()
 		# Get counts
 		rgb = []
 		total_count = 0
+		self.tweets["lock"].acquire()
 		for category in self.tweets["categories"]:
 			rgb.append(category["count"])
 			total_count += category["count"]
+		self.tweets["lock"].release()
 
 		# Divide and multiply by 255 for percentile
 		if total_count != 0:
 			rgb = [int(255 * v / total_count) for v in rgb]
 		
-		# Set rgb values
-		self.set_all(rgb)
-		self.tweets["lock"].release()
+		# Fade rgb values
+		thread.start_new_thread(RGB_LED_Group.fade, (self, rgb, TweetAnalyzer.RGB_FADE_TIME_DELTA, \
+				TweetAnalyzer.RGB_FADE_DURATION, TweetAnalyzer.RGB_FADE_FUNCTION, ))
 
 	def reset_tweets(self):
 		""" Reset the counts for tweet categories """
@@ -171,7 +182,6 @@ class RGB_LED_Group:
 
 	def untweet(self):
 		""" Stop analyzing tweets """
-		print "untweet"
 		tweet_analyzer = TweetAnalyzer()
 		tweet_analyzer.remove(self)
 		self.tweets = {}
@@ -222,12 +232,18 @@ class Singleton(type):
 			cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
 		return cls._instances[cls]
 
-class TweetAnalyzer():
+class MathUtil:
+	TWO_PI = 2 * math.pi
+	FOUR_PI = 4 * math.pi
+
+class TweetAnalyzer:
 	""" Analyze tweets for different boards with RGB LED groups """
 	__metaclass__ = Singleton
 	ANALYSIS_DURATION = 60 # Every minute, in seconds
 	LANGUAGES = ["en"]
 	PROPERTIES_FILE = "resources/twitter.properties"
+	RGB_FADE_TIME_DELTA = 0.05
+	RGB_FADE_DURATION = 5.0
 
 	def __init__(self):
 		""" Constructor """
@@ -235,6 +251,10 @@ class TweetAnalyzer():
 		self.rgb_led_streams = {}
 		self.rgb_led_streams_lock = threading.Lock()
 		self.load_properties()
+
+	@staticmethod
+	def RGB_FADE_FUNCTION(t):
+		return abs(math.sin(MathUtil.TWO_PI*t)) if t < 0.25 or t > 0.75 else (-0.25*math.cos(MathUtil.FOUR_PI*t) + 0.75)
 
 	@staticmethod
 	def current_ms():
@@ -299,7 +319,7 @@ class TweetAnalyzer():
 		
 		# Stop stream and remove
 		if rgb_led_group.id in self.rgb_led_streams:
-			print "Removing RGB LED Group", rgb_led_group.id
+			# print "Removing RGB LED Group", rgb_led_group.id
 			self.rgb_led_streams[rgb_led_group.id].running = False
 			self.rgb_led_streams.pop(rgb_led_group.id, None)
 

@@ -14,7 +14,7 @@ var BoardAPI = (function () {
 		/**
 		 * Milliseconds till next board update/get
 		 */
-		RETRIEVE_TIMEOUT: 5000,
+		RETRIEVE_TIMEOUT: 50,
 
 		/**
 		 * Types of Controls
