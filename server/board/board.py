@@ -1,4 +1,4 @@
-import re, uuid
+import random, re, threading, time, uuid
 
 class Board:
 	""" A board for manipulating inputs on """
@@ -57,7 +57,7 @@ class Board:
 		""" Update controls based on a specific command and int values """
 		# Parse values
 		int_values = [int(x) for x in re.findall("\d+", int_values)]
-		str_values = [str(x) for x in re.findall("\w+", str_values)]
+		str_values = [x.strip() for x in str_values.split(",")]
 
 		# Commands
 		if command == "rgb-led" and len(int_values) == 5:
@@ -69,8 +69,12 @@ class Board:
 		elif command == "pulse" and len(int_values) == 4:
 			# Pulse through the RGB LEDs
 			self.rgb_led_groups[int_values[0]].pulse(int_values[1:])
-		elif command == "tweet" and len(str_values) == 3:
-			# Map a tweet to the RGB LEDs
+		elif command == "tweet" and len(int_values) == 1 and len(str_values) == 3:
+			# Start analyzing tweets
+			self.rgb_led_groups[int_values[0]].tweet(str_values)
+		elif command == "untweet" and len(int_values) == 1:
+			# Stop analyzing tweets
+			self.rgb_led_groups[int_values[0]].untweet()
 			pass
 
 class RGB_LED_Group:
@@ -119,11 +123,46 @@ class RGB_LED_Group:
 
 	def pulse(self, rgb):
 		""" Shift all and set first """
-		for i in reversed(range(len(self.rgb_leds) - 1)):
+		for i in reversed(range(len(self.rgb_leds))):
 			if i == 0:
 				self.rgb_leds[i].set_value(rgb)
 			else:
 				self.rgb_leds[i].set_dict(self.rgb_leds[i - 1].get())
+
+	def tweet(self, categories):
+		""" Start analyzing tweets periodically """
+		print "tweet", categories
+		self.tweets = {"last-update": TweetAnalyzer.current_ms(), "categories": map(lambda category: {"name": category, "count": 0}, categories)}
+		tweet_analyzer = TweetAnalyzer()
+		tweet_analyzer.add(self)
+
+	def display_tweets(self):
+		""" Update the RGB LEDs based on the tweet counts """
+		# Get counts
+		rgb = []
+		total_count = 0
+		for category in self.tweets["categories"]:
+			rgb.append(category["count"])
+			total_count += category["count"]
+
+		# Divide and multiply by 255 for percentile
+		if total_count != 0:
+			rgb = [int(255 * v / total_count) for v in rgb]
+		
+		# Set rgb values
+		self.set_all(rgb)
+
+	def reset_tweets(self):
+		""" Reset the counts for tweet categories """
+		for category in self.tweets["categories"]:
+				category["count"] = 0
+
+	def untweet(self):
+		""" Stop analyzing tweets """
+		print "untweet"
+		tweet_analyzer = TweetAnalyzer()
+		tweet_analyzer.remove(self)
+		self.tweets = {}
 
 class RGB_LED:
 	""" A single RGB LED """
@@ -164,3 +203,76 @@ class RGB_LED:
 		if d.has_key("r") and type(d["r"]) is int:
 			self.mode = str(d["mode"])
 
+class Singleton(type):
+	_instances = {}
+	def __call__(cls, *args, **kwargs):
+		if cls not in cls._instances:
+			cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+		return cls._instances[cls]
+
+class TweetAnalyzer(threading.Thread):
+	""" Analyze tweets for different boards with RGB LED groups """
+	__metaclass__ = Singleton
+	RETRIEVE_TIME_BETWEEN = 0.1 # Tenth of a second between
+	RETRIEVE_TIMEOUT = 10 # Every 10 seconds
+	ANALYSIS_DURATION = 60000 # Every minute, in ms
+
+	def __init__(self):
+		""" Constructor """
+		threading.Thread.__init__(self)
+		self.rgb_led_groups = []
+		self.rgb_led_groups_lock = threading.Lock()
+
+	@staticmethod
+	def current_ms():
+		""" Get the current time in Milliseconds """
+		return int(round(time.time() * 1000))
+
+	def add(self, rgb_led_group):
+		""" Add an rgb_led_group to the analysis """
+		self.rgb_led_groups_lock.acquire()
+		print "Adding RGB LED Group", rgb_led_group.id
+		self.rgb_led_groups.append(rgb_led_group)
+		self.rgb_led_groups_lock.release()
+
+	def remove(self, rgb_led_group):
+		""" Remove an rgb_led_group from the analysis """
+		self.rgb_led_groups_lock.acquire()
+		print "Removing RGB LED Group", rgb_led_group.id
+		self.rgb_led_groups.remove(rgb_led_group)
+		self.rgb_led_groups_lock.release()
+
+	def fetch_tweets(self, rgb_led_group):
+		""" Fetch tweets for the RGB LED Group """
+		print "TweetAnalyzer", rgb_led_group.id, rgb_led_group.tweets["categories"]
+
+		curr_time = TweetAnalyzer.current_ms()
+
+		if curr_time >= (rgb_led_group.tweets["last-update"] + TweetAnalyzer.ANALYSIS_DURATION):
+			# Display data
+			rgb_led_group.display_tweets()
+			# Reset counts
+			rgb_led_group.reset_tweets()
+			# Update time
+			rgb_led_group.tweets["last-update"] = curr_time
+			print "TweetAnalyzer", rgb_led_group.id, "RESET"
+		
+		# Get a tweet that filters on categories
+		# Update counts
+		rgb_led_group.tweets["categories"][0]["count"] += random.randint(0, 100)
+		rgb_led_group.tweets["categories"][1]["count"] += random.randint(0, 100)
+		rgb_led_group.tweets["categories"][2]["count"] += random.randint(0, 100)
+
+	def run(self):
+		""" Analyze tweets for RGB LED Groups """
+		while True:
+			# Collect tweets
+			self.rgb_led_groups_lock.acquire()
+			print "TweetAnalyzer", len(self.rgb_led_groups), "groups"
+			for rgb_led_group in self.rgb_led_groups:
+				self.fetch_tweets(rgb_led_group)
+				time.sleep(TweetAnalyzer.RETRIEVE_TIME_BETWEEN)
+			self.rgb_led_groups_lock.release()
+
+			# Wait for timeout
+			time.sleep(TweetAnalyzer.RETRIEVE_TIMEOUT)

@@ -14,7 +14,7 @@ var BoardAPI = (function () {
 		/**
 		 * Milliseconds till next board update/get
 		 */
-		RETRIEVE_TIMEOUT_MS: 100,
+		RETRIEVE_TIMEOUT: 5000,
 
 		/**
 		 * Types of Controls
@@ -143,8 +143,9 @@ var BoardAPI = (function () {
 			 */
 			RGB_LEDs: {
 				group: undefined,
-				modalTitle: "Set the RGB LED",
+				modalTitle: "Set the RGB LED Group",
 				modalBody: "<p>R: <input id='modalR' type='number' min='0' max='255' /> G: <input id='modalG' type='number' min='0' max='255' /> B: <input id='modalB' type='number' min='0' max='255' /></p>",
+				command: "rgb-leds",
 
 				/**
 				 * Show the modal
@@ -152,12 +153,16 @@ var BoardAPI = (function () {
 				show: function (groupId) {
 					BoardAPI.controls.RGB_LEDs.group = groupId;
 					BoardAPI.modal.set(BoardAPI.controls.RGB_LEDs.modalTitle, BoardAPI.controls.RGB_LEDs.modalBody, BoardAPI.controls.RGB_LEDs.modalSave);
+					BoardAPI.modal.show();
 				},
 
 				/**
 				 * Save the modal
 				 */
 				modalSave: function () {
+					var intValues = "" + BoardAPI.controls.RGB_LEDs.group + "," +
+									$("#modalR").val() + "," + $("#modalG").val() + "," + $("#modalB").val();
+					BoardAPI.post(BoardAPI.controls.RGB_LEDs.command, intValues);
 					BoardAPI.modal.hide();
 				}
 			},
@@ -167,8 +172,11 @@ var BoardAPI = (function () {
 			 */
 			pulse: {
 				group: undefined,
-				modalTitle: "Set the RGB LED",
-				modalBody: "<p>R: <input id='modalR' type='number' min='0' max='255' /> G: <input id='modalG' type='number' min='0' max='255' /> B: <input id='modalB' type='number' min='0' max='255' /></p>",
+				pulsing: {},
+				rate: {},
+				modalTitle: "Set a Pulse across the RGB LEDs",
+				modalBody: "<p>Milliseconds: <input id='pulseRate' type='number' min='10' max='5000' /><br /><button id='pulseFlip' type='button' class='btn' onclick='BoardAPI.controls.pulse.flip()'></button></p>",
+				command: "pulse",
 
 				/**
 				 * Show the modal
@@ -176,14 +184,85 @@ var BoardAPI = (function () {
 				show: function (groupId) {
 					BoardAPI.controls.pulse.group = groupId;
 					BoardAPI.modal.set(BoardAPI.controls.pulse.modalTitle, BoardAPI.controls.pulse.modalBody, BoardAPI.controls.pulse.modalSave);
+					BoardAPI.controls.pulse.setupModal();
+					BoardAPI.modal.show();
+				},
+
+				/**
+				 * Set button displayed on Modal
+				 */
+				setupModal: function () {
+					var groupId = BoardAPI.controls.pulse.group;
+					
+					// Initialize if needed
+					if (BoardAPI.controls.pulse.pulsing[groupId] === undefined) {
+						BoardAPI.controls.pulse.pulsing[groupId] = false;
+					}
+
+					if (BoardAPI.controls.pulse.rate[groupId] === undefined) {
+						BoardAPI.controls.pulse.rate[groupId] = 1000;
+					}
+
+					// Set values on modal
+					$("#pulseRate").val(BoardAPI.controls.pulse.rate[groupId]);
+					$("#pulseFlip").html((BoardAPI.controls.pulse.pulsing[groupId]) ? "Flip Off" : "Flip On");
+					$("#pulseFlip").addClass((BoardAPI.controls.pulse.pulsing[groupId]) ? "btn-danger" : "btn-success");
+				},
+
+				/**
+				 * Flip button
+				 */
+				flip: function () {
+					if ($("#pulseFlip").html() === "Flip Off") {
+						$("#pulseFlip").html("Flip On");
+						$("#pulseFlip").removeClass("btn-danger");
+						$("#pulseFlip").addClass("btn-success");
+					} else {
+						$("#pulseFlip").html("Flip Off");
+						$("#pulseFlip").removeClass("btn-success");
+						$("#pulseFlip").addClass("btn-danger");
+					}
 				},
 
 				/**
 				 * Save the modal
 				 */
 				modalSave: function () {
+					var groupId = BoardAPI.controls.pulse.group,
+						updatedPulsing = $("#pulseFlip").html() === "Flip Off",
+						rate = $("#pulseRate").val();
+
+					// Set rate
+					BoardAPI.controls.pulse.rate[groupId] = rate;
+
+					// Start pulsing
+					if (!BoardAPI.controls.pulse.pulsing[groupId] && updatedPulsing) {
+						setTimeout(function () {
+							BoardAPI.controls.pulse.pulse(groupId);
+						}, rate);
+					}
+
+					// Update pulsing
+					BoardAPI.controls.pulse.pulsing[groupId] = updatedPulsing;
+
 					BoardAPI.modal.hide();
-				}
+				},
+
+				/**
+				 * Pulse 
+				 */
+				 pulse: function (groupId) {
+				 	// Pulse
+				 	var intValues = "" + groupId + "," + BoardAPI.UTILS.randRGB();
+				 	BoardAPI.post(BoardAPI.controls.pulse.command, intValues);
+
+				 	// Continue
+				 	setTimeout(function () {
+				 		if (BoardAPI.controls.pulse.pulsing[groupId]) {
+				 			BoardAPI.controls.pulse.pulse(groupId);
+				 		}
+				 	}, BoardAPI.controls.pulse.rate[groupId]);
+				 }
 			},
 
 			/**
@@ -191,8 +270,11 @@ var BoardAPI = (function () {
 			 */
 			tweet: {
 				group: undefined,
-				modalTitle: "Set RGB LEDs to reflect Tweets",
-				modalBody: "<p>R: <input id='modalR' type='number' min='0' max='255' /> G: <input id='modalG' type='number' min='0' max='255' /> B: <input id='modalB' type='number' min='0' max='255' /></p>",
+				tweets: {},
+				modalTitle: "Set RGB LEDs to reflect Tweets Every 5 Minutes",
+				modalBody: "<p>Category 1: <input id='tweetCategory1' type='text' /><br />Category 2: <input id='tweetCategory2' type='text' /><br />Category 3: <input id='tweetCategory3' type='text' /><br /><button id='tweetFlip' type='button' class='btn' onclick='BoardAPI.controls.tweet.flip()'></button></p>",
+				tweetCommand: "tweet",
+				untweetCommand: "untweet",
 
 				/**
 				 * Show the modal
@@ -200,14 +282,90 @@ var BoardAPI = (function () {
 				show: function (groupId) {
 					BoardAPI.controls.tweet.group = groupId;
 					BoardAPI.modal.set(BoardAPI.controls.tweet.modalTitle, BoardAPI.controls.tweet.modalBody, BoardAPI.controls.tweet.modalSave);
+					BoardAPI.controls.tweet.setupModal();
+					BoardAPI.modal.show();
+				},
+
+				/**
+				 * Setup modal 
+				 */
+				setupModal: function () {
+					var groupId = BoardAPI.controls.tweet.group;
+
+					// Initialize if needed to Daniel's favorite categories
+					if (BoardAPI.controls.tweet.tweets[groupId] === undefined) {
+						BoardAPI.controls.tweet.tweets[groupId] = {
+							running: false,
+							categories: ["Filthy Frank", "Madoka Magica", "Natalie Moore"]
+						};
+					}
+
+					// Set values in modal
+					BoardAPI.controls.tweet.tweets[groupId].categories.forEach(function (category, index) {
+						$("#tweetCategory" + (index + 1)).val(category);
+					});
+					$("#tweetFlip").html((BoardAPI.controls.tweet.tweets[groupId].running) ? "Flip Off" : "Flip On");
+					$("#tweetFlip").addClass((BoardAPI.controls.tweet.tweets[groupId].running) ? "btn-danger" : "btn-success");
+				},
+
+				/**
+				 * Flip button
+				 */
+				flip: function () {
+					if ($("#tweetFlip").html() === "Flip Off") {
+						$("#tweetFlip").html("Flip On");
+						$("#tweetFlip").removeClass("btn-danger");
+						$("#tweetFlip").addClass("btn-success");
+					} else {
+						$("#tweetFlip").html("Flip Off");
+						$("#tweetFlip").removeClass("btn-success");
+						$("#tweetFlip").addClass("btn-danger");
+					}
 				},
 
 				/**
 				 * Save the modal
 				 */
 				modalSave: function () {
+					var groupId = BoardAPI.controls.tweet.group,
+						updatedRunning = ($("#tweetFlip").html() === "Flip Off");
+
+					// Set categories
+					BoardAPI.controls.tweet.tweets[groupId].categories = [1, 2, 3].map(function (num) {
+						return $("#tweetCategory" + num).val();
+					});
+
+					// Turn on tweets or turn off tweets
+					if (!BoardAPI.controls.tweet.tweets[groupId].running && updatedRunning) {
+						BoardAPI.controls.tweet.tweet(groupId);
+					} else if (BoardAPI.controls.tweet.tweets[groupId].running && !updatedRunning) {
+						BoardAPI.controls.tweet.untweet(groupId);
+					}
+
+					// Set tweet running
+					BoardAPI.controls.tweet.tweets[groupId].running = updatedRunning;
+
 					BoardAPI.modal.hide();
-				}
+				},
+
+				/**
+				 * Signal the server to start analyzing tweets and changing the RGB group
+				 */
+				tweet: function (groupId) {
+					var intValues = "" + groupId,
+						strValues = BoardAPI.controls.tweet.tweets[groupId].categories[0] + "," + BoardAPI.controls.tweet.tweets[groupId].categories[1] + "," + BoardAPI.controls.tweet.tweets[groupId].categories[2];
+
+					BoardAPI.post(BoardAPI.controls.tweet.tweetCommand, intValues, strValues);
+				},
+
+				/**
+				 * Signal the server to stop analyzing tweets
+				 */
+				untweet: function (groupId) {
+					var intValues = "" + groupId;
+
+					BoardAPI.post(BoardAPI.controls.tweet.untweetCommand, intValues);
+				},
 			}
 		},
 
@@ -256,229 +414,25 @@ var BoardAPI = (function () {
 				},
 				error: function () { console.error("error getting board status"); }
 			});
+		},
+
+		/**
+		 * Utilities
+		 */
+		UTILS: {
+			/**
+			 * Get a random color value 0 - 255
+			 */
+			randColorValue: function () {
+				return Math.floor(Math.random() * 256);
+			},
+
+			/**
+			 * Get a random RGB string
+			 */
+			randRGB: function () {
+				return "" + BoardAPI.UTILS.randColorValue() + "," + BoardAPI.UTILS.randColorValue() + "," + BoardAPI.UTILS.randColorValue();
+			}
 		}
 	};
 })();
-
-
-
-
-
-
-
-/*
-var rgbSaveStr = undefined,
-	rgbSaveSuccess = undefined,
-	pulse = undefined;
-
-var changeLed = function (e) {
-	var myMatches = $(this).attr("id").match(/\d+/g);
-	if (myMatches === undefined || myMatches.length != 2) {
-		console.error($(this).attr("id") + " id not in led-setId-ledId format");
-		return;
-	}
-
-	var setId = parseInt(myMatches[0]),
-		ledId = parseInt(myMatches[1]),
-		saveStr = "led-" + setId + "-" + ledId;
-	rgbSet("Set RGB LED " + ledId + " in Set " + setId, $(this).attr("id"), saveStr, function () {
-		// Success
-		var rgbStr = "rgb(" + $("#rgbModalR").val() + "," + $("#rgbModalG").val() + "," + $("#rgbModalB").val() + ")";
-		$("#" + saveStr).css("background-color", rgbStr);
-	});
-};
-
-var changeLedSet = function (e) {
-	var myMatches = $(this).attr("id").match(/\d+/g);
-	if (myMatches === undefined || myMatches.length != 1) {
-		console.error($(this).attr("id") + " id not in led-set-setId format");
-		return;
-	}
-
-	var setId = parseInt(myMatches[0]),
-		saveStr = "led-set-" + setId;
-	rgbSet("Set RGB LEDs for Set " + setId, $(this).attr("id"), saveStr, function () {
-		// Success
-		var rgbStr = "rgb(" + $("#rgbModalR").val() + "," + $("#rgbModalG").val() + "," + $("#rgbModalB").val() + ")";
-		$("#" + saveStr).css("background-color", rgbStr);
-
-		var ledId = 0,
-			currentLed = document.getElementById("led-" + setId + "-" + ledId);
-		while (currentLed !== null) {
-			$("#led-" + setId + "-" + ledId).css("background-color", rgbStr);
-			ledId++;
-			currentLed = document.getElementById("led-" + setId + "-" + ledId);
-		}
-	});
-};
-
-var rgbSet = function (title, idToCopyRGB, saveStr, success) {
-	$("#rgbModalTitle").html(title);
-	copyRGB(idToCopyRGB);
-	$("#rgbModal").modal("show");
-	rgbSaveStr = saveStr;
-	rgbSaveSuccess = success;
-};
-
-var copyRGB = function (id) {
-	var rgb = $("#" + id).css("background-color");
-		matches = rgb.match(/\d+/g);
-
-	if (matches == undefined || matches.length < 3) {
-		console.error("Wrong number of rgb number matches");
-		return;
-	}
-
-	$("#rgbModalR").val(parseInt(matches[0]));
-	$("#rgbModalR").css("background-color", "#ffffff");
-	$("#rgbModalR").css("color", "#000000");
-
-	$("#rgbModalG").val(parseInt(matches[1]));
-	$("#rgbModalG").css("background-color", "#ffffff");
-	$("#rgbModalG").css("color", "#000000");
-
-	$("#rgbModalB").val(parseInt(matches[2]));
-	$("#rgbModalB").css("background-color", "#ffffff");
-	$("#rgbModalB").css("color", "#000000");
-};
-
-var invalidUChar = function (id) {
-	var value = parseInt($(id).val());
-
-	if (value < 0 || value > 255) {
-		$(id).css("background-color", "#993339");
-		$(id).css("color", "#d98e93");
-		return true;
-	} else {
-		$(id).css("background-color", "#ffffff");
-		$(id).css("color", "#000000");
-		return false;
-	}
-};
-
-var saveRgbLed = function () {
-	if (rgbSaveStr === undefined) {
-		console.error("Cannot save without speciying save string");
-		return;
-	}
-
-	var invalidR = invalidUChar("#rgbModalR"),
-		invalidG = invalidUChar("#rgbModalG"),
-		invalidB = invalidUChar("#rgbModalB");
-
-	if (invalidR || invalidG || invalidB) {
-		console.error("Incorrect RGB values");
-		return;
-	}
-
-	var rgbData = {
-		"update-key": rgbSaveStr, 
-		"update-value": $("#rgbModalR").val() + "," + $("#rgbModalG").val() + "," + $("#rgbModalB").val()
-	};
-
-	$.ajax({
-		url: "/board/" + $("#hiddenBoardName").val(),
-		type: "POST",
-		data: rgbData,
-		success: function (data) {
-			$("#rgbModal").modal("hide");
-			rgbSaveSuccess();
-		},
-		error: function () {
-			console.error("Unable to save RGB data");
-		}
-	});
-};
-
-
-var pulseOn = function () {
-	var setId = parseInt($("#hiddenPulseSet").val());
-	pulse[setId].pulsing = true;
-	pulse[setId].ms = parseInt($("#pulseModalMS").val());
-	$("#pulseModal").modal("hide");
-	$("#pulse-" + setId).removeClass("btn-danger");
-	$("#pulse-" + setId).addClass("btn-success");
-	pulseRepeat(setId);
-};
-
-var pulseOff = function () {
-	var setId = parseInt($("#hiddenPulseSet").val());
-	pulse[setId].pulsing = false;
-	$("#pulseModal").modal("hide");
-	$("#pulse-" + setId).removeClass("btn-success");
-	$("#pulse-" + setId).addClass("btn-danger");
-};
-
-var randUChar = function () {
-	return Math.floor(Math.random() * 256);
-}
-
-var pulseRepeat = function (setId) {
-	var boardUrl = "/board/" + $("#hiddenBoardName").val();
-	$.ajax({
-		url: boardUrl,
-		type: "GET",
-		success: function (data) {
-			var rgb_leds = data["rgb-led-groups"][setId]["rgb-leds"],
-				updateStrBase = "led-" + setId + "-",
-				pulseStr = "pulse-" + setId;
-
-			// Random first LED
-			var newRgb = randUChar() + "," + randUChar() + "," + randUChar();
-			$.ajax({
-				url: boardUrl,
-				type: "POST",
-				data: {"update-key": pulseStr, "update-value": newRgb},
-			});
-			$("#" + updateStrBase + "0").css("background-color", "rgb(" + newRgb + ")");
-
-			for (var i = rgb_leds.length - 1; i > 0; i--) {
-				var rgb = rgb_leds[i - 1]["r"] + "," + rgb_leds[i - 1]["g"] + "," + rgb_leds[i - 1]["b"];
-				$("#" + updateStrBase + i).css("background-color", "rgb(" + rgb + ")");
-			}
-
-			// Set timeout
-			if (pulse[setId].pulsing) {
-				setTimeout(function () {
-					pulseRepeat(setId);
-				}, pulse[setId].ms);
-			}
-		},
-		error: function () {
-			console.error("error getting board status");
-		}
-	});
-};
-
-var initPulse = function () {
-	pulse = []
-	for (var i = 0; i < parseInt($("#hiddenNumSets").val()); i++) {
-		pulse.push({pulsing: false, ms: 0});
-	}
-};
-
-var pulseModalShow = function () {
-	var myMatches = $(this).attr("id").match(/\d+/g);
-	if (myMatches === undefined || myMatches.length != 1) {
-		console.error($(this).attr("id") + " id not in pulse-setId format");
-		return;
-	}
-
-	if (pulse === undefined) {
-		initPulse();
-	}
-
-	var setId = parseInt(myMatches[0]);
-	$("#hiddenPulseSet").val(setId);
-	$("#pulseModalTitle").html("Pulse LEDs across Set " + setId);
-	if (pulse[setId].pulsing) {
-		$("#pulseModalOn").hide();
-		$("#pulseModalOff").show();
-	} else {
-		$("#pulseModalOff").hide();
-		$("#pulseModalOn").show();
-	}
-
-	$("#pulseModal").modal("show");
-};
-*/

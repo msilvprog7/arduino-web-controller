@@ -60,29 +60,6 @@
 						    </div>
 						</div>
 
-						<div id="pulseModal" class="modal fade">
-						    <div class="modal-dialog">
-						        <div class="modal-content">
-						            <div class="modal-header">
-						                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-						                <h4 class="modal-title"><span id="pulseModalTitle"></span></h4>
-						            </div>
-						            <div class="modal-body">
-						                <p>
-						                	Milliseconds: <input id="pulseModalMS" type="number" min="10" max="5000" value="1000" /> <br />
-						                </p>
-						                <input id="hiddenPulseSet" type="text" style="display: none;" readonly value="" />
-						                <input id="hiddenNumSets" type="text" style="display: none;" readonly value="{{ board.rgb_led_groups|length }}" />
-						            </div>
-						            <div class="modal-footer">
-						                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-						                <button id="pulseModalOff" type="button" class="btn btn-danger" style="display: none;">Flip Off</button>
-						                <button id="pulseModalOn" type="button" class="btn btn-success">Flip On</button>
-						            </div>
-						        </div>
-						    </div>
-						</div>
-
 
 						<h2>{{ board.name }} Board Controls</h2>
 						<div id="controlBoard">

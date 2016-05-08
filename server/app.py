@@ -1,6 +1,6 @@
 from flask import Flask, json, jsonify, render_template, request
 from board import names
-from board.board import Board
+from board.board import Board, TweetAnalyzer
 
 # Define app
 app = Flask(__name__)
@@ -10,6 +10,10 @@ boards = []
 
 # Name generator
 name_generator = names.NameGenerator()
+
+# Start thread for Tweet Analyzer
+tweet_analyzer = TweetAnalyzer()
+tweet_analyzer.start()
 
 
 def has_board(board_name):
