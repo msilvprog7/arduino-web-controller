@@ -77,7 +77,9 @@ class Board:
 		elif command == "untweet" and len(int_values) == 1:
 			# Stop analyzing tweets
 			self.rgb_led_groups[int_values[0]].untweet()
-			pass
+		elif command == "rand" and len(int_values) == 1 and len(str_values) == 1:
+			# Randomly set RGB LEDs
+			self.rgb_led_groups[int_values[0]].rand(str_values[0])
 
 class RGB_LED_Group:
 	""" A cluster of RGB LEDs """
@@ -90,6 +92,7 @@ class RGB_LED_Group:
 	def reset(self, num):
 		""" Reset the LEDs """
 		self.rgb_leds = []
+		self.tweets = None
 		self.single_rgb_led = True
 		self.more_than_ten = False
 		if num <= 0:
@@ -107,7 +110,8 @@ class RGB_LED_Group:
 
 	def get(self):
 		""" Get the values of the group """
-		return {"rgb-leds": [x.get() for x in self.rgb_leds], "group_id": self.id}
+		return {"group_id": self.id, "rgb-leds": [x.get() for x in self.rgb_leds], \
+			"tweets": self.tweets["categories"] if self.tweets != None and "categories" in self.tweets else None}
 
 	def set_all(self, value):
 		""" Set all the values """
@@ -123,6 +127,19 @@ class RGB_LED_Group:
 				led.set_value(value)
 				return
 
+	def rand(self, option):
+		""" Randomly set group """
+		if option == "completely":
+			# Set each to a new random value
+			new_rgb = RGB_LED.get_rand_rgb()
+			self.set_all(new_rgb)
+		elif option == "flip-flop":
+			# Odds to one rand, Evens to another
+			odd_color = RGB_LED.get_rand_rgb()
+			even_color = RGB_LED.get_rand_rgb()
+			for i, rgb_led in enumerate(self.rgb_leds):
+				rgb_led.set_value(odd_color if i % 2 == 0 else even_color)
+
 	def pulse(self, rgb):
 		""" Shift all and set first """
 		for i in reversed(range(len(self.rgb_leds))):
@@ -131,13 +148,21 @@ class RGB_LED_Group:
 			else:
 				self.rgb_leds[i].set_dict(self.rgb_leds[i - 1].get())
 
-	def fade(self, rgb, time_delta, duration, fcn):
+	def fade(self, rgb, time_delta, transitions):
 		""" Fade all over duration """
-		current_t = 0.0
-		t_chunks = (time_delta / duration)
-		while current_t <= 1.0:
-			self.set_all(map(lambda v: int(math.floor(v*fcn(current_t))), rgb))
-			current_t += t_chunks
+		print "fade", rgb
+		for val in transitions:
+			self.set_all(map(lambda v: int(math.floor(v*val)), rgb))
+			time.sleep(time_delta)
+
+	def scale_fade(self, rgb, time_delta, transitions):
+		""" Scale fade from original values (0.0) to rgb (1.0) """
+		print "scale fade", rgb
+		original_rgbs = [rgb_led.get_rgb() for rgb_led in self.rgb_leds]
+		diff_rgbs = [map(lambda orig_v, new_v: new_v - orig_v, original_rgbs[i], rgb) for i in range(len(original_rgbs))]
+		for val in transitions:
+			for i in range(len(original_rgbs)):
+				self.set(i, map(lambda orig_v, diff: int(math.floor(orig_v + val * diff)), original_rgbs[i], diff_rgbs[i]))
 			time.sleep(time_delta)
 
 	def tweet(self, categories):
@@ -149,6 +174,9 @@ class RGB_LED_Group:
 
 	def add_to_tweet_category(self, category_index, amount=1):
 		""" Add amount to tweet category """
+		if "lock" not in self.tweets:
+			return
+
 		self.tweets["lock"].acquire()
 		# print "tweet", self.id, "add", amount, "to", self.tweets["categories"][category_index]["name"]
 		self.tweets["categories"][category_index]["count"] += amount
@@ -156,6 +184,9 @@ class RGB_LED_Group:
 
 	def display_tweets(self):
 		""" Update the RGB LEDs based on the tweet counts """
+		if "lock" not in self.tweets:
+			return
+		
 		# Get counts
 		rgb = []
 		total_count = 0
@@ -170,11 +201,14 @@ class RGB_LED_Group:
 			rgb = [int(255 * v / total_count) for v in rgb]
 		
 		# Fade rgb values
-		thread.start_new_thread(RGB_LED_Group.fade, (self, rgb, TweetAnalyzer.RGB_FADE_TIME_DELTA, \
-				TweetAnalyzer.RGB_FADE_DURATION, TweetAnalyzer.RGB_FADE_FUNCTION, ))
+		thread.start_new_thread(RGB_LED_Group.scale_fade, (self, rgb, TweetAnalyzer.RGB_FADE_TIME_DELTA, \
+				TweetAnalyzer.RGB_FADE_FUNCTION, ))
 
 	def reset_tweets(self):
 		""" Reset the counts for tweet categories """
+		if "lock" not in self.tweets:
+			return
+		
 		self.tweets["lock"].acquire()
 		for category in self.tweets["categories"]:
 				category["count"] = 0
@@ -205,6 +239,10 @@ class RGB_LED:
 		""" Return dictionary of values """
 		return {"r": self.r, "g": self.g, "b": self.b, "mode": self.mode, "id": self.id}
 
+	def get_rgb(self):
+		""" Returns rgb values """
+		return [self.r, self.g, self.b]
+
 	def set_value(self, values):
 		if len(values) < 3 or any([int(x) < 0 or int(x) > 255 for x in values]):
 			print "At least one value was invalid, rejecting transaction"
@@ -225,6 +263,11 @@ class RGB_LED:
 		if d.has_key("r") and type(d["r"]) is int:
 			self.mode = str(d["mode"])
 
+	@staticmethod
+	def get_rand_rgb():
+		""" Get a random RGB value """
+		return [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+
 class Singleton(type):
 	_instances = {}
 	def __call__(cls, *args, **kwargs):
@@ -236,6 +279,19 @@ class MathUtil:
 	TWO_PI = 2 * math.pi
 	FOUR_PI = 4 * math.pi
 
+	@staticmethod
+	def precompute_transition(time_delta, duration, transition):
+		""" Precompute a transition function's values """
+		t = 0.0
+		t_chunks = time_delta / duration
+		computation = []
+		while t <= 1.0:
+			computation.append(transition(t))
+			t += t_chunks
+		# End with a 0.0
+		computation.append(0.0)
+		return computation
+
 class TweetAnalyzer:
 	""" Analyze tweets for different boards with RGB LED groups """
 	__metaclass__ = Singleton
@@ -243,7 +299,9 @@ class TweetAnalyzer:
 	LANGUAGES = ["en"]
 	PROPERTIES_FILE = "resources/twitter.properties"
 	RGB_FADE_TIME_DELTA = 0.05
-	RGB_FADE_DURATION = 5.0
+	RGB_FADE_DURATION = 3.0
+	RGB_FADE_FUNCTION = MathUtil.precompute_transition(RGB_FADE_TIME_DELTA, RGB_FADE_DURATION, \
+		lambda t: abs(math.sin(MathUtil.TWO_PI * t)) if t < 0.25 or t > 0.75 else (-0.25*math.cos(MathUtil.FOUR_PI*t) + 0.75))
 
 	def __init__(self):
 		""" Constructor """
@@ -251,10 +309,6 @@ class TweetAnalyzer:
 		self.rgb_led_streams = {}
 		self.rgb_led_streams_lock = threading.Lock()
 		self.load_properties()
-
-	@staticmethod
-	def RGB_FADE_FUNCTION(t):
-		return abs(math.sin(MathUtil.TWO_PI*t)) if t < 0.25 or t > 0.75 else (-0.25*math.cos(MathUtil.FOUR_PI*t) + 0.75)
 
 	@staticmethod
 	def current_ms():

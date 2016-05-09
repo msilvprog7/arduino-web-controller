@@ -14,7 +14,7 @@ var BoardAPI = (function () {
 		/**
 		 * Milliseconds till next board update/get
 		 */
-		RETRIEVE_TIMEOUT: 50,
+		RETRIEVE_TIMEOUT: 100,
 
 		/**
 		 * Types of Controls
@@ -24,7 +24,7 @@ var BoardAPI = (function () {
 			 * RGB LED Groups
 			 */
 			RGB_LED_GROUPS: {
-				name: "rgb-led-groups", 
+				name: "rgb-led-groups",
 				component: "rgb-led",
 				components: "rgb-leds",
 				group: true,
@@ -42,6 +42,7 @@ var BoardAPI = (function () {
 
 			name = boardName;
 			board = {};
+			operations = {};
 			BoardAPI.get();
 		},
 
@@ -91,7 +92,7 @@ var BoardAPI = (function () {
 			set: function (title, body, saveFcn) {
 				$("#modalTitle").html(title);
 				$("#modalBody").html(body);
-				$("#modalSave").click(function () { saveFcn(); });
+				document.getElementById("modalSave").onclick = function (e) { saveFcn(); e.stopPropagation(); };
 			},
 
 			show: function () {
@@ -124,7 +125,21 @@ var BoardAPI = (function () {
 					BoardAPI.controls.RGB_LED.group = groupId;
 					BoardAPI.controls.RGB_LED.led = ledId;
 					BoardAPI.modal.set(BoardAPI.controls.RGB_LED.modalTitle, BoardAPI.controls.RGB_LED.modalBody, BoardAPI.controls.RGB_LED.modalSave);
+					BoardAPI.controls.RGB_LED.setupModal();
 					BoardAPI.modal.show();
+				},
+
+				/**
+				 * Set button displayed on Modal
+				 */
+				setupModal: function () {
+					var type = BoardAPI.TYPES.RGB_LED_GROUPS,
+						values = board['RGB_LED_GROUPS'][BoardAPI.controls.RGB_LED.group][type.components][BoardAPI.controls.RGB_LED.led];
+
+					// Initialize values
+					$("#modalR").val(values.r);
+					$("#modalG").val(values.g);
+					$("#modalB").val(values.b);
 				},
 
 				/**
@@ -163,6 +178,59 @@ var BoardAPI = (function () {
 					var intValues = "" + BoardAPI.controls.RGB_LEDs.group + "," +
 									$("#modalR").val() + "," + $("#modalG").val() + "," + $("#modalB").val();
 					BoardAPI.post(BoardAPI.controls.RGB_LEDs.command, intValues);
+					BoardAPI.modal.hide();
+				}
+			},
+
+			/**
+			 * Randomize Group of RGB LEDs
+			 */
+			rand: {
+				group: undefined,
+				modalTitle: "Set Random pattern on RGB LEDs",
+				modalBody: "<p>Option: <select id='randSelect'></select></p>",
+				command: "rand",
+				options: ["completely", "flip-flop"],
+
+				/**
+				 * Show the modal
+				 */
+				show: function (groupId) {
+					BoardAPI.controls.rand.group = groupId;
+					BoardAPI.modal.set(BoardAPI.controls.rand.modalTitle, BoardAPI.controls.rand.modalBody, BoardAPI.controls.rand.modalSave);
+					BoardAPI.controls.rand.setupModal();
+					BoardAPI.modal.show();
+				},
+
+				/**
+				 * Set button displayed on Modal
+				 */
+				setupModal: function () {
+					var groupId = BoardAPI.controls.rand.group;
+					
+					// Initialize select
+					BoardAPI.controls.rand.options.forEach(function (option, index) {
+						var additional = "";
+						if (index === 0) {
+							additional = "selected='selected'";
+						}
+
+						$("#randSelect").append("<option value='" + option + "'" + additional + ">" + option  + "</option>");
+					});
+				},
+
+				/**
+				 * Save the modal
+				 */
+				modalSave: function () {
+					var groupId = BoardAPI.controls.rand.group,
+						option = $("#randSelect").val(),
+						intValues = "" + groupId,
+						strValues = option;
+
+					// Perform random option
+					BoardAPI.post(BoardAPI.controls.rand.command, intValues, strValues);
+
 					BoardAPI.modal.hide();
 				}
 			},
@@ -290,13 +358,22 @@ var BoardAPI = (function () {
 				 * Setup modal 
 				 */
 				setupModal: function () {
-					var groupId = BoardAPI.controls.tweet.group;
+					var groupId = BoardAPI.controls.tweet.group,
+						rgb_leds = board['RGB_LED_GROUPS'][groupId];
 
-					// Initialize if needed to Daniel's favorite categories
-					if (BoardAPI.controls.tweet.tweets[groupId] === undefined) {
+					// Try to retrieve running tweets from last board update
+					if (rgb_leds !== undefined && rgb_leds["tweets"] !== undefined && rgb_leds["tweets"] !== null) {
+						BoardAPI.controls.tweet.tweets[groupId] = {
+							running: true,
+							categories: rgb_leds["tweets"].map(function (category) {
+								return category["name"];
+							})
+						};
+					} else {
+						// Initialize to Daniel's favorites
 						BoardAPI.controls.tweet.tweets[groupId] = {
 							running: false,
-							categories: ["Filthy Frank", "Madoka Magica", "Natalie Moore"]
+							categories: ["Filthy Frank", "Madoka Magica", "Hearthstone"]
 						};
 					}
 

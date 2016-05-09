@@ -74,6 +74,10 @@
 													class="btn led-button" type="button" 
 													style="background-color: rgb({{ rgb.r }}, {{ rgb.g }}, {{ rgb.b }}) !important;">+</button>
 
+											<!-- Random -->
+											<button onclick="BoardAPI.controls.rand.show({{ rgb_led_group.id }})" 
+													type="button" class="btn btn-warning rand-button">rand</button>
+
 											<!-- Pulse -->
 											<button onclick="BoardAPI.controls.pulse.show({{ rgb_led_group.id }})" 
 													type="button" class="btn btn-danger pulse-button">pulse</button>
@@ -91,6 +95,10 @@
 											<button id="rgb-led-{{ rgb_led_group.id }}-0" 
 													onclick="BoardAPI.controls.RGB_LEDs.show({{ rgb_led_group.id }})"
 													type="button" class="btn btn-primary led-set-button">all {{ rgb_led_group.rgb_leds|length }}</button>
+
+											<!-- Random -->
+											<button onclick="BoardAPI.controls.rand.show({{ rgb_led_group.id }})" 
+													type="button" class="btn btn-warning rand-button">rand</button>
 
 											<!-- Pulse -->
 											<button onclick="BoardAPI.controls.pulse.show({{ rgb_led_group.id }})" 
@@ -114,6 +122,10 @@
 											<!-- Group of RGB LEDs -->
 											<button onclick="BoardAPI.controls.RGB_LEDs.show({{ rgb_led_group.id }})"
 													type="button" class="btn btn-primary led-set-button">all</button>
+
+											<!-- Random -->
+											<button onclick="BoardAPI.controls.rand.show({{ rgb_led_group.id }})" 
+													type="button" class="btn btn-warning rand-button">rand</button>
 
 											<!-- Pulse -->
 											<button onclick="BoardAPI.controls.pulse.show({{ rgb_led_group.id }})"
