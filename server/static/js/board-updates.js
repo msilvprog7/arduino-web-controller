@@ -190,7 +190,7 @@ var BoardAPI = (function () {
 				modalTitle: "Set Random pattern on RGB LEDs",
 				modalBody: "<p>Option: <select id='randSelect'></select></p>",
 				command: "rand",
-				options: ["completely", "flip-flop"],
+				options: ["all", "flip-flop", "completely"],
 
 				/**
 				 * Show the modal
@@ -339,7 +339,7 @@ var BoardAPI = (function () {
 			tweet: {
 				group: undefined,
 				tweets: {},
-				modalTitle: "Set RGB LEDs to reflect Tweets Every 5 Minutes",
+				modalTitle: "Set RGB LEDs to reflect Tweets Every Minute",
 				modalBody: "<p>Category 1: <input id='tweetCategory1' type='text' /><br />Category 2: <input id='tweetCategory2' type='text' /><br />Category 3: <input id='tweetCategory3' type='text' /><br /><button id='tweetFlip' type='button' class='btn' onclick='BoardAPI.controls.tweet.flip()'></button></p>",
 				tweetCommand: "tweet",
 				untweetCommand: "untweet",
@@ -442,6 +442,104 @@ var BoardAPI = (function () {
 					var intValues = "" + groupId;
 
 					BoardAPI.post(BoardAPI.controls.tweet.untweetCommand, intValues);
+				},
+			},
+
+			/**
+			 * For a Storm on the RGB LEDs
+			 */
+			storm: {
+				group: undefined,
+				storms: {},
+				modalTitle: "Set RGB LEDs to randomly fluctuate like a Storm",
+				modalBody: "<p><button id='stormFlip' type='button' class='btn' onclick='BoardAPI.controls.storm.flip()'></button></p>",
+				stormCommand: "storm",
+				unstormCommand: "unstorm",
+
+				/**
+				 * Show the modal
+				 */
+				show: function (groupId) {
+					BoardAPI.controls.storm.group = groupId;
+					BoardAPI.modal.set(BoardAPI.controls.storm.modalTitle, BoardAPI.controls.storm.modalBody, BoardAPI.controls.storm.modalSave);
+					BoardAPI.controls.storm.setupModal();
+					BoardAPI.modal.show();
+				},
+
+				/**
+				 * Setup modal 
+				 */
+				setupModal: function () {
+					var groupId = BoardAPI.controls.storm.group,
+						rgb_leds = board['RGB_LED_GROUPS'][groupId];
+
+					// Try to retrieve running tweets from last board update
+					if (rgb_leds !== undefined && rgb_leds["storm"] !== undefined && rgb_leds["storm"] !== null && rgb_leds["storm"]) {
+						BoardAPI.controls.storm.storms[groupId] = {
+							running: true
+						};
+					} else {
+						BoardAPI.controls.storm.storms[groupId] = {
+							running: false
+						};
+					}
+
+					// Set button
+					$("#stormFlip").html((BoardAPI.controls.storm.storms[groupId].running) ? "Flip Off" : "Flip On");
+					$("#stormFlip").addClass((BoardAPI.controls.storm.storms[groupId].running) ? "btn-danger" : "btn-success");
+				},
+
+				/**
+				 * Flip button
+				 */
+				flip: function () {
+					if ($("#stormFlip").html() === "Flip Off") {
+						$("#stormFlip").html("Flip On");
+						$("#stormFlip").removeClass("btn-danger");
+						$("#stormFlip").addClass("btn-success");
+					} else {
+						$("#stormFlip").html("Flip Off");
+						$("#stormFlip").removeClass("btn-success");
+						$("#stormFlip").addClass("btn-danger");
+					}
+				},
+
+				/**
+				 * Save the modal
+				 */
+				modalSave: function () {
+					var groupId = BoardAPI.controls.storm.group,
+						updatedRunning = ($("#stormFlip").html() === "Flip Off");
+
+					// Turn on tweets or turn off storms
+					if (!BoardAPI.controls.storm.storms[groupId].running && updatedRunning) {
+						BoardAPI.controls.storm.storm(groupId);
+					} else if (BoardAPI.controls.storm.storms[groupId].running && !updatedRunning) {
+						BoardAPI.controls.storm.unstorm(groupId);
+					}
+
+					// Set storm running
+					BoardAPI.controls.storm.storms[groupId].running = updatedRunning;
+
+					BoardAPI.modal.hide();
+				},
+
+				/**
+				 * Signal the server to start analyzing tweets and changing the RGB group
+				 */
+				storm: function (groupId) {
+					var intValues = "" + groupId;
+
+					BoardAPI.post(BoardAPI.controls.storm.stormCommand, intValues);
+				},
+
+				/**
+				 * Signal the server to stop analyzing tweets
+				 */
+				unstorm: function (groupId) {
+					var intValues = "" + groupId;
+
+					BoardAPI.post(BoardAPI.controls.storm.unstormCommand, intValues);
 				},
 			}
 		},

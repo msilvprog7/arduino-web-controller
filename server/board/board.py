@@ -80,6 +80,12 @@ class Board:
 		elif command == "rand" and len(int_values) == 1 and len(str_values) == 1:
 			# Randomly set RGB LEDs
 			self.rgb_led_groups[int_values[0]].rand(str_values[0])
+		elif command == "storm" and len(int_values) == 1:
+			# Start fluctuating RGB LED values like a storm
+			self.rgb_led_groups[int_values[0]].set_storm(True)
+		elif command == "unstorm" and len(int_values) == 1:
+			# Stop fluctuating RGB LED values like a storm
+			self.rgb_led_groups[int_values[0]].set_storm(False)
 
 class RGB_LED_Group:
 	""" A cluster of RGB LEDs """
@@ -93,6 +99,7 @@ class RGB_LED_Group:
 		""" Reset the LEDs """
 		self.rgb_leds = []
 		self.tweets = None
+		self.storm = False
 		self.single_rgb_led = True
 		self.more_than_ten = False
 		if num <= 0:
@@ -110,8 +117,9 @@ class RGB_LED_Group:
 
 	def get(self):
 		""" Get the values of the group """
-		return {"group_id": self.id, "rgb-leds": [x.get() for x in self.rgb_leds], \
-			"tweets": self.tweets["categories"] if self.tweets != None and "categories" in self.tweets else None}
+		return {"group_id": self.id, "rgb-leds": [x.get(self.storm) for x in self.rgb_leds], \
+			"tweets": self.tweets["categories"] if self.tweets != None and "categories" in self.tweets else None, \
+			"storm": self.storm}
 
 	def set_all(self, value):
 		""" Set all the values """
@@ -129,8 +137,8 @@ class RGB_LED_Group:
 
 	def rand(self, option):
 		""" Randomly set group """
-		if option == "completely":
-			# Set each to a new random value
+		if option == "all":
+			# Set each to a single random value
 			new_rgb = RGB_LED.get_rand_rgb()
 			self.set_all(new_rgb)
 		elif option == "flip-flop":
@@ -139,6 +147,10 @@ class RGB_LED_Group:
 			even_color = RGB_LED.get_rand_rgb()
 			for i, rgb_led in enumerate(self.rgb_leds):
 				rgb_led.set_value(odd_color if i % 2 == 0 else even_color)
+		elif option == "completely":
+			# Set each to different random values
+			for rgb_led in self.rgb_leds:
+				rgb_led.set_value(RGB_LED.get_rand_rgb())
 
 	def pulse(self, rgb):
 		""" Shift all and set first """
@@ -171,6 +183,9 @@ class RGB_LED_Group:
 			"lock": threading.Lock()}
 		tweet_analyzer = TweetAnalyzer()
 		tweet_analyzer.add(self)
+
+	def set_storm(self, turn_on):
+		self.storm = turn_on
 
 	def add_to_tweet_category(self, category_index, amount=1):
 		""" Add amount to tweet category """
@@ -222,6 +237,9 @@ class RGB_LED_Group:
 
 class RGB_LED:
 	""" A single RGB LED """
+	STORM_RAIN_FLUCUATION = 10
+	STORM_LIGHTNING_FLUCTUATION = 70
+	STORM_LIGHTNING_ODDS = 0.01
 
 	def __init__(self, id):
 		""" Constructor """
@@ -235,13 +253,37 @@ class RGB_LED:
 		self.b = b
 		self.mode = None
 
-	def get(self):
+	def get(self, storm=False):
 		""" Return dictionary of values """
-		return {"r": self.r, "g": self.g, "b": self.b, "mode": self.mode, "id": self.id}
+		if not storm:
+			return {"r": self.r, "g": self.g, "b": self.b, "mode": self.mode, "id": self.id}
+		else:
+			return self.get_storm_value()
 
 	def get_rgb(self):
 		""" Returns rgb values """
 		return [self.r, self.g, self.b]
+
+	def get_storm_value(self):
+		""" Returns a randomly changing approximate value for the color """
+		vals = []
+		fluct = RGB_LED.STORM_RAIN_FLUCUATION if random.random() >= RGB_LED.STORM_LIGHTNING_ODDS else RGB_LED.STORM_LIGHTNING_FLUCTUATION
+		
+		for v in self.get_rgb():
+			# Bound values (uncapped)
+			min_bound = v - fluct
+			max_bound = v + fluct
+			# Shift if on edge (should not both occur)
+			if min_bound < 0:
+				max_bound += min_bound
+				min_bound = 0
+			if max_bound > 255:
+				min_bound -= (max_bound - 255)
+				max_bound = 255
+			# Add random fluctuation
+			vals.append(random.randint(min_bound, max_bound))
+
+		return {"r": vals[0], "g": vals[1], "b": vals[2]}
 
 	def set_value(self, values):
 		if len(values) < 3 or any([int(x) < 0 or int(x) > 255 for x in values]):
